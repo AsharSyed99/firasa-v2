@@ -1,4 +1,5 @@
 import { validateEnv } from './config/env.js';
+import { initFirebase } from './config/firebase.js';
 import { createApp } from './app.js';
 import { initDatabase } from './services/database.js';
 
@@ -8,7 +9,10 @@ async function main() {
 
   console.log(`🚀 Firasa API starting (${env.NODE_ENV})`);
 
-  // 2. Connect database
+  // 2. Initialize Firebase Auth
+  initFirebase();
+
+  // 3. Connect database
   await initDatabase();
 
   // 3. Start server

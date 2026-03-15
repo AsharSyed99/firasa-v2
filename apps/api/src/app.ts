@@ -6,6 +6,7 @@ import { healthRouter } from './routes/health.js';
 import { v1Router } from './routes/v1/index.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestLogger } from './middleware/request-logger.js';
+import { apiLimiter } from './middleware/rate-limit.js';
 
 export function createApp() {
   const app = express();
@@ -17,6 +18,9 @@ export function createApp() {
 
   // Parsing
   app.use(express.json({ limit: '1mb' }));
+
+  // Rate limiting
+  app.use('/api/', apiLimiter);
 
   // Logging
   app.use(requestLogger);
