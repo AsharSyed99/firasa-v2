@@ -3,6 +3,8 @@ import { guruRouter } from './gurus.js';
 import { meRouter } from './me.js';
 import { signalRouter } from './signals.js';
 import { pipelineRouter } from './pipeline.js';
+import { flagRouter } from './flags.js';
+import { schedulerRouter } from './scheduler.js';
 
 export const v1Router = Router();
 
@@ -14,3 +16,5 @@ v1Router.use('/gurus', guruRouter);
 v1Router.use('/me', meRouter);
 v1Router.use('/signals', signalRouter);
 v1Router.use('/pipeline', pipelineRouter);
+v1Router.use('/flags', flagRouter);
+v1Router.use('/scheduler', schedulerRouter);
