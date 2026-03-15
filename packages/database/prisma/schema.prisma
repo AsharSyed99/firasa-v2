@@ -16,7 +16,8 @@ model User {
   displayName  String?  @map("display_name")
   photoUrl     String?  @map("photo_url")
   tier         String   @default("free") // free | pro | premium | admin
-  stripeId     String?  @unique @map("stripe_customer_id")
+  stripeCustomerId     String?  @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
   onboardingDone Boolean @default(false) @map("onboarding_done")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")

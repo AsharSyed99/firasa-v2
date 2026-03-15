@@ -1,0 +1,165 @@
+name: CD — Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  determine-env:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+    steps:
+      - id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: determine-env
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-env.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Build all packages
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Package API
+        run: |
+          cd apps/api
+          mkdir -p ../../artifacts/api
+          cp -r dist package.json ../../artifacts/api/
+          cp -r ../../packages/database/prisma ../../artifacts/api/
+
+      - name: Build web (static export)
+        run: |
+          cd apps/web
+          npm run build
+          mkdir -p ../../artifacts/web
+          cp -r out/* ../../artifacts/web/ 2>/dev/null || cp -r .next/standalone/* ../../artifacts/web/
+
+      - name: Upload API artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-${{ github.sha }}
+          path: artifacts/api/
+
+      - name: Upload Web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-${{ github.sha }}
+          path: artifacts/web/
+
+  deploy-api:
+    needs: [determine-env, build]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-env.outputs.environment }}
+    steps:
+      - name: Download API artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-${{ github.sha }}
+          path: api/
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: firasa-${{ needs.determine-env.outputs.environment }}-api
+          publish-profile: ${{ secrets.AZURE_API_PUBLISH_PROFILE }}
+          package: api/
+
+      - name: Run database migrations
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az webapp config appsettings set \
+              --name firasa-${{ needs.determine-env.outputs.environment }}-api \
+              --resource-group firasa-${{ needs.determine-env.outputs.environment }} \
+              --settings MIGRATE_ON_START=true
+
+      - name: Health check
+        run: |
+          ENV=${{ needs.determine-env.outputs.environment }}
+          if [ "$ENV" = "production" ]; then
+            URL="https://api.firasa.app/health"
+          else
+            URL="https://firasa-staging-api.azurewebsites.net/health"
+          fi
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' $URL || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ Health check failed"
+          exit 1
+
+  deploy-web:
+    needs: [determine-env, build]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.determine-env.outputs.environment }}
+    steps:
+      - name: Download Web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-${{ github.sha }}
+          path: web/
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN }}
+          action: upload
+          app_location: web/
+
+  notify:
+    needs: [determine-env, deploy-api, deploy-web]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment status
+        run: |
+          ENV=${{ needs.determine-env.outputs.environment }}
+          API=${{ needs.deploy-api.result }}
+          WEB=${{ needs.deploy-web.result }}
+          if [ "$API" = "success" ] && [ "$WEB" = "success" ]; then
+            echo "✅ Deployed to $ENV successfully"
+          else
+            echo "❌ Deployment to $ENV failed (API: $API, Web: $WEB)"
+            exit 1
+          fi

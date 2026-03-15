@@ -5,6 +5,7 @@ import { signalRouter } from './signals.js';
 import { adminOpsRouter } from './pipeline.js';
 import { flagRouter } from './flags.js';
 import { adminJobsRouter } from './scheduler.js';
+import { billingRouter } from './billing.js';
 
 export const v1Router = Router();
 
@@ -18,3 +19,4 @@ v1Router.use('/signals', signalRouter);
 v1Router.use('/admin', adminOpsRouter);
 v1Router.use('/admin/jobs', adminJobsRouter);
 v1Router.use('/flags', flagRouter);
+v1Router.use('/billing', billingRouter);
