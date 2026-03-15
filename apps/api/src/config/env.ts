@@ -30,6 +30,9 @@ const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_WHATSAPP_FROM: z.string().optional(),
 
+  // Telegram Bot (optional)
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+
   // Stripe (optional until billing is set up)
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),

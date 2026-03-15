@@ -28,7 +28,7 @@ export interface ExportSignalOptions {
 }
 
 export async function exportSignals(
-  userId: string,
+  _userId: string,
   tier: UserTier,
   options: ExportSignalOptions
 ): Promise<string> {

@@ -253,6 +253,28 @@ class ApiClient {
       sharedTickers: number; agreements: number; disagreements: number; correlation: number;
     }[] }>(`/api/v1/correlation?days=${days}`);
   }
+
+  // ─── Weekly Report ──────────────────────────────────────────
+
+  async getWeeklyReport() {
+    return this.request<{ data: WeeklyReportDto }>('/api/v1/weekly-report');
+  }
+}
+
+export interface WeeklyReportDto {
+  weekStartDate: string;
+  weekEndDate: string;
+  signalsReceived: number;
+  tradesOpened: number;
+  tradesClosed: number;
+  weekPnl: number;
+  weekPnlPercent: number;
+  bestTrade: { ticker: string; returnPercent: number } | null;
+  worstTrade: { ticker: string; returnPercent: number } | null;
+  guruOfTheWeek: { name: string; handle: string; accuracy: number } | null;
+  topSectors: { sector: string; signalCount: number }[];
+  streakStatus: { current: number; best: number };
+  weekOverWeekChange: number;
 }
 
 export interface PriceAlertDto {

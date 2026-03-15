@@ -1,4 +1,5 @@
 import type { SignalDto } from '@firasa/shared';
+import { ShareButton } from './share-button';
 
 const ACTION_COLORS: Record<string, string> = {
   BUY: 'bg-green-900/50 text-green-300 border-green-700',
@@ -25,6 +26,7 @@ export function SignalCard({ signal }: { signal: SignalDto }) {
           <span className="text-sm opacity-75">by @{signal.guruHandle}</span>
         </div>
         <div className="flex items-center gap-2">
+          <ShareButton signal={signal} />
           <ScoreBadge score={signal.score} />
           {signal.afterHours && (
             <span className="text-xs px-1.5 py-0.5 bg-purple-800 text-purple-200 rounded">AH</span>

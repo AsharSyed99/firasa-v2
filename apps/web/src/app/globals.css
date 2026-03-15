@@ -13,6 +13,18 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+/* Light theme overrides */
+.light-theme {
+  --foreground: #111827;
+  --background: #ffffff;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --bg-card: #ffffff;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border: #e5e7eb;
+}
+
 /* iOS safe area for bottom nav */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
