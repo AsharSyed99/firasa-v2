@@ -5,7 +5,7 @@ interface AppError extends Error {
   code?: string;
 }
 
-/** Global error handler — catches thrown errors and unhandled rejections */
+/** Global error handler — sanitized for users, detailed in server logs */
 export function errorHandler(
   err: AppError,
   _req: Request,
@@ -13,16 +13,17 @@ export function errorHandler(
   _next: NextFunction
 ) {
   const statusCode = err.statusCode ?? 500;
-  const message =
-    statusCode === 500 && process.env.NODE_ENV === 'production'
-      ? 'Internal server error'
-      : err.message;
 
+  // Always log full details server-side
   console.error(`[ERROR] ${statusCode}: ${err.message}`, err.stack);
+
+  // User sees generic message for 5xx, specific message for 4xx
+  const message = statusCode >= 500
+    ? 'Something went wrong. Please try again later.'
+    : err.message;
 
   res.status(statusCode).json({
     success: false,
     error: message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 }

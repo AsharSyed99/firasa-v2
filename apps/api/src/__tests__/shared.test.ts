@@ -14,6 +14,6 @@ describe('shared enums', () => {
     expect(TIER_LIMITS.pro.whatsapp).toBe(true);
     expect(TIER_LIMITS.free.whatsapp).toBe(false);
     expect(TIER_LIMITS.premium.apiAccess).toBe(true);
-    expect(TIER_LIMITS.admin.maxGurus).toBe(Infinity);
+    expect(TIER_LIMITS.admin.maxGurus).toBe(10_000);
   });
 });

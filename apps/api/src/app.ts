@@ -6,7 +6,9 @@ import { healthRouter } from './routes/health.js';
 import { v1Router } from './routes/v1/index.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { requestLogger } from './middleware/request-logger.js';
-import { apiLimiter } from './middleware/rate-limit.js';
+import { apiLimiter, perUserLimiter } from './middleware/rate-limit.js';
+import { antiAbuse } from './middleware/anti-abuse.js';
+import { enforceDailyApiLimit } from './middleware/tier-enforcement.js';
 
 export function createApp() {
   const app = express();
@@ -19,14 +21,20 @@ export function createApp() {
   // Parsing
   app.use(express.json({ limit: '1mb' }));
 
-  // Rate limiting
+  // Rate limiting (IP-based first pass)
   app.use('/api/', apiLimiter);
 
   // Logging
   app.use(requestLogger);
 
-  // Routes
+  // Routes (health is public, no auth needed)
   app.use('/health', healthRouter);
+
+  // Per-user rate limit + anti-abuse + daily quota (after auth resolves in route handlers)
+  app.use('/api/', perUserLimiter);
+  app.use('/api/', antiAbuse);
+  app.use('/api/', enforceDailyApiLimit);
+
   app.use('/api/v1', v1Router);
 
   // Error handling (must be last)

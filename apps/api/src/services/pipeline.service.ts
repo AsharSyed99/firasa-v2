@@ -1,4 +1,5 @@
 import { getDb } from './database.js';
+import { getPrioritizedGurus, consumePollCredit } from './guru-pool.service.js';
 import { fetchUserTweets, lookupUserId } from '../providers/twitter.js';
 import { getQuotes, getPriceAtTime } from '../providers/yahoo-finance.js';
 import { getQuote as getFinnhubQuote } from '../providers/finnhub.js';
@@ -132,14 +133,17 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
   return result;
 }
 
-/** Run pipeline for all active gurus */
+/** Run pipeline for active gurus, respecting global poll budget and priority */
 export async function runPipelineAll(): Promise<PipelineResult[]> {
-  const db = getDb();
-  const gurus = await db.guru.findMany({ where: { isActive: true } });
+  const prioritizedIds = await getPrioritizedGurus();
 
   const results: PipelineResult[] = [];
-  for (const guru of gurus) {
-    const result = await runPipelineForGuru(guru.id);
+  for (const guruId of prioritizedIds) {
+    if (!consumePollCredit()) {
+      console.warn('Poll budget exhausted — stopping pipeline run');
+      break;
+    }
+    const result = await runPipelineForGuru(guruId);
     results.push(result);
   }
 
