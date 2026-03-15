@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../../middleware/auth.js';
 import { validateBody } from '../../middleware/validate.js';
+import { enforceGuruLimit } from '../../middleware/tier-enforcement.js';
 import { updatePreferencesSchema, updateGuruConfigSchema } from './schemas/user.schema.js';
 import * as userService from '../../services/user.service.js';
 import type { ApiResponse, UserDto, UserPreferenceDto, UserGuruConfigDto } from '@firasa/shared';
@@ -46,6 +47,7 @@ meRouter.get('/gurus', async (req, res) => {
 meRouter.patch(
   '/gurus/:guruId',
   validateBody(updateGuruConfigSchema),
+  enforceGuruLimit,
   async (req, res) => {
     const config = await userService.updateUserGuruConfig(
       req.user!.id,
