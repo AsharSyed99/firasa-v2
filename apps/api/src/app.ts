@@ -5,6 +5,7 @@ import { getEnv } from './config/env.js';
 import { healthRouter } from './routes/health.js';
 import { v1Router } from './routes/v1/index.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { errorTracker, performanceTracker } from './middleware/sentry.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { apiLimiter, perUserLimiter } from './middleware/rate-limit.js';
 import { antiAbuse } from './middleware/anti-abuse.js';
@@ -27,6 +28,9 @@ export function createApp() {
   // Logging
   app.use(requestLogger);
 
+  // Performance tracking
+  app.use(performanceTracker);
+
   // Routes (health is public, no auth needed)
   app.use('/health', healthRouter);
 
@@ -36,6 +40,9 @@ export function createApp() {
   app.use('/api/', enforceDailyApiLimit);
 
   app.use('/api/v1', v1Router);
+
+  // Error tracking (before handler so errors are captured)
+  app.use(errorTracker);
 
   // Error handling (must be last)
   app.use(errorHandler);
