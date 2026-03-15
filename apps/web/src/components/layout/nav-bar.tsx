@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { SearchBar } from '../search/search-bar';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Signals', icon: '📡' },
@@ -32,6 +33,10 @@ export function NavBar() {
             </Link>
           );
         })}
+        <div className="flex flex-col items-center gap-0.5 py-2 px-3">
+          <SearchBar />
+          <span className="text-[10px] font-medium text-gray-500">Search</span>
+        </div>
       </div>
     </nav>
   );
