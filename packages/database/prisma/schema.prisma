@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users & Auth ────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  firebaseUid  String   @unique @map("firebase_uid")
+  email        String   @unique
+  displayName  String?  @map("display_name")
+  photoUrl     String?  @map("photo_url")
+  tier         String   @default("free") // free | pro | premium | admin
+  stripeId     String?  @unique @map("stripe_customer_id")
+  onboardingDone Boolean @default(false) @map("onboarding_done")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  preferences  UserPreference?
+  guruConfigs  UserGuruConfig[]
+  alertLogs    AlertLog[]
+  quota        UserQuota?
+  devices      UserDevice[]
+
+  @@map("users")
+}
+
+model UserPreference {
+  id               String   @id @default(cuid())
+  userId           String   @unique @map("user_id")
+  alertThreshold   Int      @default(50) @map("alert_threshold")
+  maxAlertsPerDay  Int      @default(10) @map("max_alerts_per_day")
+  quietHoursStart  String?  @map("quiet_hours_start") // "22:00"
+  quietHoursEnd    String?  @map("quiet_hours_end")   // "08:00"
+  timezone         String   @default("America/New_York")
+  whatsappEnabled  Boolean  @default(false) @map("whatsapp_enabled")
+  whatsappNumber   String?  @map("whatsapp_number")
+  pushEnabled      Boolean  @default(true) @map("push_enabled")
+  emailEnabled     Boolean  @default(false) @map("email_enabled")
+  emailDigestTime  String?  @map("email_digest_time") // "08:00"
+  tickerWhitelist  String?  @map("ticker_whitelist") // JSON array
+  tickerBlacklist  String?  @map("ticker_blacklist") // JSON array
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model UserDevice {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  fcmToken  String   @unique @map("fcm_token")
+  platform  String   // ios | android | web
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_devices")
+}
+
+model UserGuruConfig {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  guruId       String   @map("guru_id")
+  isFollowing  Boolean  @default(true) @map("is_following")
+  isMuted      Boolean  @default(false) @map("is_muted")
+  customWeight Float?   @map("custom_weight")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guru Guru @relation(fields: [guruId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, guruId])
+  @@map("user_guru_configs")
+}
+
+model UserQuota {
+  id              String   @id @default(cuid())
+  userId          String   @unique @map("user_id")
+  alertsSentToday Int      @default(0) @map("alerts_sent_today")
+  lastResetDate   String   @map("last_reset_date") // YYYY-MM-DD
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_quotas")
+}
+
+// ─── Gurus ───────────────────────────────────────────────────
+
+model Guru {
+  id               String   @id @default(cuid())
+  twitterHandle    String   @unique @map("twitter_handle")
+  twitterUserId    String?  @unique @map("twitter_user_id")
+  displayName      String   @map("display_name")
+  category         String   @default("general")
+  reliability      Float    @default(0.5)
+  isActive         Boolean  @default(true) @map("is_active")
+  totalSignals     Int      @default(0) @map("total_signals")
+  profitableSignals Int     @default(0) @map("profitable_signals")
+  avgScore         Float    @default(0) @map("avg_score")
+  lastPolledAt     DateTime? @map("last_polled_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  signals     Signal[]
+  userConfigs UserGuruConfig[]
+
+  @@map("gurus")
+}
+
+// ─── Signals ─────────────────────────────────────────────────
+
+model Signal {
+  id              String   @id @default(cuid())
+  guruId          String   @map("guru_id")
+  tweetId         String   @unique @map("tweet_id")
+  tweetText       String   @map("tweet_text")
+  tweetCreatedAt  DateTime @map("tweet_created_at")
+  tickers         String   // JSON array of tickers
+  action          String   // BUY | SELL | HOLD | UNCLEAR
+  sentiment       String   // BULLISH | BEARISH | NEUTRAL | MIXED
+  confidence      Float    @default(0)
+  score           Int      @default(0)
+  reasoning       String?
+  entryPrice      Float?   @map("entry_price")
+  entryPriceTime  DateTime? @map("entry_price_time")
+  afterHours      Boolean  @default(false) @map("after_hours")
+  imageAnalysis   String?  @map("image_analysis")
+  rawEnrichment   String?  @map("raw_enrichment") // JSON
+
+  // Outcome tracking
+  price1hLater    Float?   @map("price_1h_later")
+  price4hLater    Float?   @map("price_4h_later")
+  price1dLater    Float?   @map("price_1d_later")
+  price3dLater    Float?   @map("price_3d_later")
+  price1wLater    Float?   @map("price_1w_later")
+  price1mLater    Float?   @map("price_1m_later")
+  outcome1h       String?  @map("outcome_1h") // WIN | LOSS | NEUTRAL
+  outcome4h       String?  @map("outcome_4h")
+  outcome1d       String?  @map("outcome_1d")
+  outcome3d       String?  @map("outcome_3d")
+  outcome1w       String?  @map("outcome_1w")
+  outcome1m       String?  @map("outcome_1m")
+
+  processedAt     DateTime @default(now()) @map("processed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  guru      Guru       @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  alertLogs AlertLog[]
+
+  @@index([guruId, createdAt])
+  @@index([tickers])
+  @@map("signals")
+}
+
+// ─── Alerts ──────────────────────────────────────────────────
+
+model AlertLog {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  signalId   String   @map("signal_id")
+  channel    String   // whatsapp | push | email
+  status     String   @default("sent") // sent | delivered | failed
+  errorMsg   String?  @map("error_msg")
+  sentAt     DateTime @default(now()) @map("sent_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  signal Signal @relation(fields: [signalId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sentAt])
+  @@map("alert_logs")
+}
+
+// ─── Platform ────────────────────────────────────────────────
+
+model PollLog {
+  id         String   @id @default(cuid())
+  guruId     String   @map("guru_id")
+  tweetsFound Int     @default(0) @map("tweets_found")
+  signalsCreated Int  @default(0) @map("signals_created")
+  errors     String?
+  duration   Int      @default(0) // ms
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([guruId, createdAt])
+  @@map("poll_logs")
+}
+
+model ApiCall {
+  id         String   @id @default(cuid())
+  service    String   // twitter | yahoo | finnhub | groq | twilio
+  endpoint   String
+  statusCode Int?     @map("status_code")
+  latency    Int?     // ms
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([service, createdAt])
+  @@map("api_calls")
+}
+
+model FeatureFlag {
+  id              String   @id @default(cuid())
+  name            String   @unique
+  description     String?
+  enabled         Boolean  @default(false)
+  rolloutPercent  Int      @default(0) @map("rollout_percent")
+  targetTiers     String?  @map("target_tiers") // JSON array: ["pro","premium"]
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flags")
+}
+
+model DailySummary {
+  id              String   @id @default(cuid())
+  date            String   @unique // YYYY-MM-DD
+  totalSignals    Int      @default(0) @map("total_signals")
+  buySignals      Int      @default(0) @map("buy_signals")
+  sellSignals     Int      @default(0) @map("sell_signals")
+  avgScore        Float    @default(0) @map("avg_score")
+  alertsSent      Int      @default(0) @map("alerts_sent")
+  activeUsers     Int      @default(0) @map("active_users")
+  newUsers        Int      @default(0) @map("new_users")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("daily_summaries")
+}
