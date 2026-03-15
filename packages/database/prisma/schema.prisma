@@ -28,6 +28,8 @@ model User {
   quota              UserQuota?
   devices            UserDevice[]
   portfolioPositions PortfolioPosition[]
+  watchlistItems     WatchlistItem[]
+  priceAlerts        PriceAlert[]
 
   @@map("users")
 }
@@ -243,6 +245,39 @@ model PortfolioPosition {
   signal Signal? @relation(fields: [linkedSignalId], references: [id])
 
   @@map("portfolio_positions")
+}
+
+// ─── Watchlist ─────────────────────────────────────────────
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  ticker    String
+  addedAt   DateTime @default(now()) @map("added_at")
+  notes     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ticker])
+  @@map("watchlist_items")
+}
+
+// ─── Price Alerts ─────────────────────────────────────────────
+
+model PriceAlert {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  ticker      String
+  condition   String    // "above" | "below"
+  targetPrice Float     @map("target_price")
+  isActive    Boolean   @default(true) @map("is_active")
+  triggeredAt DateTime? @map("triggered_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@map("price_alerts")
 }
 
 model DailySummary {

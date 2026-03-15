@@ -1,5 +1,15 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3010';
 
+interface WatchlistItemDto {
+  id: string;
+  ticker: string;
+  addedAt: string;
+  notes: string | null;
+  currentPrice: number | null;
+  dailyChangePercent: number | null;
+  recentSignalCount: number;
+}
+
 class ApiClient {
   private token: string | null = null;
 
@@ -97,11 +107,59 @@ class ApiClient {
     return this.request<{ data: import('@firasa/shared').TradeOutcomeDto[] }>(`/api/v1/signals/trades?${query}`);
   }
 
+  // ─── Watchlist ──────────────────────────────────────────
+
+  async getWatchlist() {
+    return this.request<{ data: WatchlistItemDto[] }>('/api/v1/watchlist');
+  }
+
+  async addToWatchlist(ticker: string, notes?: string) {
+    return this.request<{ success: boolean }>('/api/v1/watchlist', {
+      method: 'POST',
+      body: JSON.stringify({ ticker, notes }),
+    });
+  }
+
+  async removeFromWatchlist(ticker: string) {
+    return this.request<{ success: boolean }>(`/api/v1/watchlist/${encodeURIComponent(ticker)}`, {
+      method: 'DELETE',
+    });
+  }
+
   // ─── Feature Flags ──────────────────────────────────────
 
   async getFlags() {
     return this.request<{ data: Record<string, boolean> }>('/api/v1/flags');
   }
+
+  // ─── Price Alerts ─────────────────────────────────────────
+
+  async getAlerts() {
+    return this.request<{ data: PriceAlertDto[] }>('/api/v1/alerts');
+  }
+
+  async createPriceAlert(input: { ticker: string; condition: string; targetPrice: number }) {
+    return this.request<{ data: PriceAlertDto }>('/api/v1/alerts', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  }
+
+  async deletePriceAlert(id: string) {
+    return this.request<{ success: boolean }>(`/api/v1/alerts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+export interface PriceAlertDto {
+  id: string;
+  ticker: string;
+  condition: string;
+  targetPrice: number;
+  isActive: boolean;
+  triggeredAt: string | null;
+  createdAt: string;
 }
 
 export const api = new ApiClient();

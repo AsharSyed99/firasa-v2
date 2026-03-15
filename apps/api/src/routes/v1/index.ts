@@ -10,6 +10,10 @@ import { adminRouter } from './admin.js';
 import { leaderboardRouter } from './leaderboard.js';
 import { convergenceRouter } from './convergence.js';
 import { portfolioRouter } from './portfolio.js';
+import { heatmapRouter } from './heatmap.js';
+import { watchlistRouter } from './watchlist.js';
+import { priceAlertRouter } from './price-alerts.js';
+import { exportRouter } from './export.js';
 
 export const v1Router = Router();
 
@@ -28,3 +32,7 @@ v1Router.use('/admin/monitor', adminRouter);
 v1Router.use('/leaderboard', leaderboardRouter);
 v1Router.use('/convergence', convergenceRouter);
 v1Router.use('/portfolio', portfolioRouter);
+v1Router.use('/heatmap', heatmapRouter);
+v1Router.use('/watchlist', watchlistRouter);
+v1Router.use('/alerts', priceAlertRouter);
+v1Router.use('/export', exportRouter);

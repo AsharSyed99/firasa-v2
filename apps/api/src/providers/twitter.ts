@@ -1,11 +1,17 @@
 import { getEnv } from '../config/env.js';
 
-interface Tweet {
+interface ReferencedTweet {
+  type: 'retweeted' | 'quoted' | 'replied_to';
+  id: string;
+}
+
+export interface Tweet {
   id: string;
   text: string;
   created_at: string;
   author_id: string;
   attachments?: { media_keys?: string[] };
+  referenced_tweets?: ReferencedTweet[];
 }
 
 interface TwitterResponse {
@@ -16,7 +22,7 @@ interface TwitterResponse {
 
 /**
  * Fetch recent tweets from a Twitter user using X API v2.
- * Returns tweets newer than sinceId if provided.
+ * Now includes referenced_tweets for retweet/quote detection.
  */
 export async function fetchUserTweets(
   userId: string,
@@ -26,7 +32,7 @@ export async function fetchUserTweets(
   const env = getEnv();
 
   const params = new URLSearchParams({
-    'tweet.fields': 'created_at,attachments',
+    'tweet.fields': 'created_at,attachments,referenced_tweets',
     'expansions': 'attachments.media_keys',
     'media.fields': 'url,preview_image_url',
     'max_results': String(maxResults),
@@ -59,6 +65,21 @@ export async function fetchUserTweets(
     tweets: data.data ?? [],
     mediaMap,
   };
+}
+
+/** Check if a tweet is a pure retweet (not the guru's own words) */
+export function isRetweet(tweet: Tweet): boolean {
+  return tweet.referenced_tweets?.some((r) => r.type === 'retweeted') ?? false;
+}
+
+/** Check if a tweet is a quote tweet (guru is adding their opinion) */
+export function isQuoteTweet(tweet: Tweet): boolean {
+  return tweet.referenced_tweets?.some((r) => r.type === 'quoted') ?? false;
+}
+
+/** Check if a tweet is a reply */
+export function isReply(tweet: Tweet): boolean {
+  return tweet.referenced_tweets?.some((r) => r.type === 'replied_to') ?? false;
 }
 
 /**
