@@ -22,11 +22,12 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  preferences  UserPreference?
-  guruConfigs  UserGuruConfig[]
-  alertLogs    AlertLog[]
-  quota        UserQuota?
-  devices      UserDevice[]
+  preferences        UserPreference?
+  guruConfigs        UserGuruConfig[]
+  alertLogs          AlertLog[]
+  quota              UserQuota?
+  devices            UserDevice[]
+  portfolioPositions PortfolioPosition[]
 
   @@map("users")
 }
@@ -157,8 +158,9 @@ model Signal {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  guru      Guru       @relation(fields: [guruId], references: [id], onDelete: Cascade)
-  alertLogs AlertLog[]
+  guru               Guru                @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  alertLogs          AlertLog[]
+  portfolioPositions PortfolioPosition[]
 
   @@index([guruId, createdAt])
   @@index([tickers])
@@ -222,6 +224,25 @@ model FeatureFlag {
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   @@map("feature_flags")
+}
+
+// ─── Portfolio ────────────────────────────────────────────────
+
+model PortfolioPosition {
+  id             String    @id @default(uuid())
+  userId         String    @map("user_id")
+  ticker         String
+  shares         Float
+  avgCost        Float     @map("avg_cost")
+  openedAt       DateTime  @default(now()) @map("opened_at")
+  closedAt       DateTime? @map("closed_at")
+  closePrice     Float?    @map("close_price")
+  linkedSignalId String?   @map("linked_signal_id")
+
+  user   User    @relation(fields: [userId], references: [id])
+  signal Signal? @relation(fields: [linkedSignalId], references: [id])
+
+  @@map("portfolio_positions")
 }
 
 model DailySummary {

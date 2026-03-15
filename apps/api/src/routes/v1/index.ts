@@ -7,6 +7,9 @@ import { flagRouter } from './flags.js';
 import { adminJobsRouter } from './scheduler.js';
 import { billingRouter } from './billing.js';
 import { adminRouter } from './admin.js';
+import { leaderboardRouter } from './leaderboard.js';
+import { convergenceRouter } from './convergence.js';
+import { portfolioRouter } from './portfolio.js';
 
 export const v1Router = Router();
 
@@ -22,3 +25,6 @@ v1Router.use('/admin/jobs', adminJobsRouter);
 v1Router.use('/flags', flagRouter);
 v1Router.use('/billing', billingRouter);
 v1Router.use('/admin/monitor', adminRouter);
+v1Router.use('/leaderboard', leaderboardRouter);
+v1Router.use('/convergence', convergenceRouter);
+v1Router.use('/portfolio', portfolioRouter);

@@ -11,6 +11,7 @@ export const TIER_LIMITS = {
     tradeTracker: false,
     apiAccess: false,
     customScoring: false,
+    portfolio: false,
     maxConcurrentSessions: 2,
   },
   pro: {
@@ -24,6 +25,7 @@ export const TIER_LIMITS = {
     tradeTracker: true,
     apiAccess: false,
     customScoring: false,
+    portfolio: false,
     maxConcurrentSessions: 5,
   },
   premium: {
@@ -37,6 +39,7 @@ export const TIER_LIMITS = {
     tradeTracker: true,
     apiAccess: true,
     customScoring: true,
+    portfolio: true,
     maxConcurrentSessions: 10,
   },
   admin: {
@@ -50,6 +53,7 @@ export const TIER_LIMITS = {
     tradeTracker: true,
     apiAccess: true,
     customScoring: true,
+    portfolio: true,
     maxConcurrentSessions: 50,
   },
 } as const;

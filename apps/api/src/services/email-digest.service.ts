@@ -25,10 +25,10 @@ export async function generateUserDigest(userId: string): Promise<UserDigest | n
 
   const user = await db.user.findUnique({
     where: { id: userId },
-    include: { preference: true },
+    include: { preferences: true },
   });
 
-  if (!user || !user.preference?.emailEnabled) return null;
+  if (!user || !user.preferences?.emailEnabled) return null;
 
   // Get signals from the last 24 hours for gurus the user follows
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -180,7 +180,7 @@ export async function runDailyDigest(): Promise<{ sent: number; skipped: number 
   
   const users = await db.user.findMany({
     where: {
-      preference: { emailEnabled: true },
+      preferences: { emailEnabled: true },
     },
     select: { id: true },
   });
