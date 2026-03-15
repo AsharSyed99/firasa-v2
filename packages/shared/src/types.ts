@@ -155,6 +155,15 @@ export interface DailySummaryDto {
   newUsers: number;
 }
 
+// ─── Pipeline ────────────────────────────────────────────────
+
+export interface PipelineResult {
+  guruHandle: string;
+  tweetsProcessed: number;
+  signalsCreated: number;
+  errors: string[];
+}
+
 // ─── Health ──────────────────────────────────────────────────
 
 export interface HealthDto {
