@@ -138,6 +138,7 @@ model Signal {
   confidence      Float    @default(0)
   score           Int      @default(0)
   reasoning       String?
+  timeframe       String?  @default("UNKNOWN") // INTRADAY | SWING | POSITION | LONG_TERM | UNKNOWN
   entryPrice      Float?   @map("entry_price")
   entryPriceTime  DateTime? @map("entry_price_time")
   afterHours      Boolean  @default(false) @map("after_hours")

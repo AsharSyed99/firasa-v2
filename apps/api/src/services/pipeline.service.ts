@@ -117,7 +117,7 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
       // 7. LLM analysis
       const enrichmentContext = buildEnrichmentContext(tickers, quotes, finnhubData);
       const isQuote = isQuoteTweet(tweet);
-      const analysis = await analyzeTweet(tweet.text, enrichmentContext, imageAnalysis, isQuote);
+      const analysis = await analyzeTweet(tweet.text, enrichmentContext, imageAnalysis, isQuote, guru.twitterHandle);
 
       // 8. Get entry price at tweet time
       const tweetTime = new Date(tweet.created_at);
@@ -133,8 +133,9 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
           tickers: JSON.stringify(tickers),
           action: analysis.action,
           sentiment: analysis.sentiment,
-          confidence: isQuote ? analysis.confidence * 0.8 : analysis.confidence, // Slightly lower confidence for quote tweets
+          confidence: isQuote ? analysis.confidence * 0.8 : analysis.confidence,
           score: analysis.score,
+          timeframe: analysis.timeframe,
           reasoning: isQuote
             ? `[Quote Tweet] ${analysis.reasoning}`
             : analysis.reasoning,
@@ -214,9 +215,13 @@ function extractTickers(text: string): string[] {
 }
 
 function buildImagePrompt(tweetText: string): string {
-  return `This image was posted with a financial tweet: "${tweetText}". ` +
-    `Describe what you see — focus on charts, price targets, support/resistance levels, ` +
-    `technical indicators, or any financial data shown. Be concise.`;
+  return [
+    `This image was posted alongside a financial tweet: "${tweetText}".`,
+    `Describe ONLY what you can clearly see. Do NOT guess or fabricate numbers.`,
+    `Focus on: chart patterns, labeled price targets, support/resistance lines, technical indicators (RSI, MACD, moving averages), or any visible financial data.`,
+    `If the image is blurry, a meme, or not a chart, say "Non-chart image" and describe it in one sentence.`,
+    `Be concise — max 3 sentences.`,
+  ].join(' ');
 }
 
 function buildEnrichmentContext(
@@ -242,6 +247,7 @@ interface AnalysisResult {
   sentiment: string;
   confidence: number;
   score: number;
+  timeframe: string;
   reasoning: string;
 }
 
@@ -249,25 +255,56 @@ async function analyzeTweet(
   tweetText: string,
   enrichmentContext: string,
   imageAnalysis: string | null,
-  isQuote = false
+  isQuote = false,
+  guruHandle = ''
 ): Promise<AnalysisResult> {
-  const quoteNote = isQuote
-    ? '\nNote: This is a QUOTE TWEET — the guru is commenting on someone else\'s post. Focus on the guru\'s added commentary for the signal, not the original tweet content.'
+  const quoteInstruction = isQuote
+    ? `\n\nIMPORTANT: This is a QUOTE TWEET. The text contains both the guru's commentary AND the original quoted post. Only analyze the guru's OWN words for the signal. The quoted content is context, not the guru's opinion.`
     : '';
 
-  const systemPrompt = `You are a financial signal analyst. Analyze the following tweet from a financial guru and determine:
-1. ACTION: BUY, SELL, HOLD, or UNCLEAR
-2. SENTIMENT: BULLISH, BEARISH, NEUTRAL, or MIXED
-3. CONFIDENCE: 0-1 (how confident the guru seems)
-4. SCORE: 0-100 (overall signal strength, considering conviction + data quality)
-5. REASONING: Brief explanation${quoteNote}
+  const systemPrompt = `You are a financial signal extraction engine. Extract the trading signal from a tweet by @${guruHandle || 'a financial guru'}.
 
-Respond in JSON format: {"action":"BUY","sentiment":"BULLISH","confidence":0.8,"score":75,"reasoning":"..."}`;
+OUTPUT (strict JSON, nothing else):
+{"action":"...", "sentiment":"...", "confidence":0.0, "score":0, "timeframe":"...", "reasoning":"..."}
+
+FIELD DEFINITIONS:
+- ACTION: The guru's intent. One of:
+  BUY = explicitly recommending purchase, "loading up", "added to position", strong entry call
+  SELL = explicitly recommending exit, "trimming", "taking profits", "get out"
+  HOLD = watching, monitoring, waiting for confirmation, "still in"
+  UNCLEAR = commentary, news sharing, educational, vague, no actionable signal
+
+- SENTIMENT: The guru's market outlook. One of: BULLISH, BEARISH, NEUTRAL, MIXED
+
+- CONFIDENCE: How convicted the guru sounds (NOT your confidence in the analysis). Scale:
+  0.1-0.3 = speculative, hedged language ("might", "could", "watching")
+  0.4-0.6 = moderate conviction ("looking good", "I like this setup")
+  0.7-0.8 = strong conviction ("loading up", "this is the play", specific price targets)
+  0.9-1.0 = extreme conviction ("all in", "max position", urgent tone)
+
+- SCORE: Overall signal quality 0-100, combining conviction + data specificity:
+  0-20 = no actionable content (memes, jokes, vague commentary)
+  21-40 = weak signal (general sentiment without specifics)
+  41-60 = moderate signal (clear direction + some reasoning)
+  61-80 = strong signal (specific targets, catalysts, or technicals)
+  81-100 = exceptional (multiple confirming factors, precise levels, strong track record context)
+
+- TIMEFRAME: One of: INTRADAY, SWING (1-5 days), POSITION (weeks-months), LONG_TERM (months+), UNKNOWN
+
+- REASONING: One sentence explaining why you chose this action/score.
+
+EDGE CASES — handle these:
+- Sarcasm, irony, jokes → action: UNCLEAR, score: 0-10
+- "Not financial advice" disclaimers → ignore them, analyze the actual content
+- Macro commentary without specific ticker thesis → action: UNCLEAR, score: 10-25
+- Pump language with no substance ("TO THE MOON 🚀🚀🚀") → confidence: 0.2, score: 15-25
+- Multiple tickers mentioned → focus on the PRIMARY ticker (first $TICKER), note others in reasoning
+- Earnings reactions → note if this is post-earnings, factor in the data quality boost${quoteInstruction}`;
 
   const userContent = [
     `Tweet: "${tweetText}"`,
-    enrichmentContext ? `\nMarket Data:\n${enrichmentContext}` : '',
-    imageAnalysis ? `\nImage Analysis: ${imageAnalysis}` : '',
+    enrichmentContext ? `\nCurrent Market Data:\n${enrichmentContext}` : '',
+    imageAnalysis ? `\nChart/Image Analysis: ${imageAnalysis}` : '',
   ].join('');
 
   const { content } = await chatCompletion([
@@ -284,6 +321,7 @@ Respond in JSON format: {"action":"BUY","sentiment":"BULLISH","confidence":0.8,"
       sentiment: parsed.sentiment ?? 'NEUTRAL',
       confidence: Math.min(1, Math.max(0, parsed.confidence ?? 0)),
       score: Math.min(100, Math.max(0, parsed.score ?? 0)),
+      timeframe: parsed.timeframe ?? 'UNKNOWN',
       reasoning: parsed.reasoning ?? '',
     };
   } catch {
@@ -292,6 +330,7 @@ Respond in JSON format: {"action":"BUY","sentiment":"BULLISH","confidence":0.8,"
       sentiment: 'NEUTRAL',
       confidence: 0,
       score: 0,
+      timeframe: 'UNKNOWN',
       reasoning: `Failed to parse LLM response: ${content.slice(0, 200)}`,
     };
   }
