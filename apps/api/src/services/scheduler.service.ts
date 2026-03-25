@@ -1,85 +1,71 @@
-import * as pipelineService from './pipeline.service.js';
+import cron from 'node-cron';
+import { createLogger } from '../config/logger.js';
 
-type SchedulerState = 'running' | 'stopped';
+const log = createLogger('scheduler');
 
-interface SchedulerConfig {
-  marketHoursInterval: number;   // ms, default 7 min
-  prePostInterval: number;       // ms, default 15 min
-  quietInterval: number;         // ms, default 60 min
-  weekendInterval: number;       // ms, default 120 min
+interface ScheduledJob {
+  name: string;
+  schedule: string;
+  task: () => Promise<void>;
+  running: boolean;
+  cronTask: cron.ScheduledTask | null;
 }
 
-const DEFAULT_CONFIG: SchedulerConfig = {
-  marketHoursInterval: 7 * 60_000,
-  prePostInterval: 15 * 60_000,
-  quietInterval: 60 * 60_000,
-  weekendInterval: 120 * 60_000,
-};
+const jobs: ScheduledJob[] = [];
+let started = false;
 
-let state: SchedulerState = 'stopped';
-let timer: ReturnType<typeof setTimeout> | null = null;
-let config = DEFAULT_CONFIG;
-
-/** Start the smart scheduler */
-export function startScheduler(overrides?: Partial<SchedulerConfig>): void {
-  if (state === 'running') return;
-  config = { ...DEFAULT_CONFIG, ...overrides };
-  state = 'running';
-  console.log('⏱️  Scheduler started');
-  scheduleNext();
+/** Register a job (does not start it) */
+export function registerJob(
+  name: string,
+  schedule: string,
+  task: () => Promise<void>,
+): void {
+  jobs.push({ name, schedule, task, running: false, cronTask: null });
 }
 
-/** Stop the scheduler */
-export function stopScheduler(): void {
-  state = 'stopped';
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
+/** Start all registered cron jobs */
+export function startScheduler(): void {
+  if (started) return;
+  started = true;
+
+  for (const job of jobs) {
+    job.cronTask = cron.schedule(job.schedule, async () => {
+      if (job.running) {
+        log.warn({ job: job.name }, 'Skipping — still running');
+        return;
+      }
+      job.running = true;
+      const start = Date.now();
+      try {
+        await job.task();
+        log.info({ job: job.name, durationMs: Date.now() - start }, 'Job completed');
+      } catch (err) {
+        log.error({ job: job.name, err }, 'Job failed');
+      } finally {
+        job.running = false;
+      }
+    });
+    log.info({ job: job.name, schedule: job.schedule }, 'Registered job');
   }
-  console.log('⏱️  Scheduler stopped');
 }
 
-/** Get scheduler status */
-export function getSchedulerStatus(): { state: SchedulerState; nextRunIn: number | null } {
-  return { state, nextRunIn: timer ? getNextInterval() : null };
+/** Stop all scheduled cron jobs */
+export function stopScheduler(): void {
+  if (!started) return;
+  for (const job of jobs) {
+    job.cronTask?.stop();
+  }
+  started = false;
+  log.info('Scheduler stopped');
 }
 
-function scheduleNext(): void {
-  if (state !== 'running') return;
-
-  const interval = getNextInterval();
-  timer = setTimeout(async () => {
-    try {
-      console.log(`⏱️  Pipeline triggered (interval: ${Math.round(interval / 60_000)}min)`);
-      await pipelineService.runPipelineAll();
-    } catch (err) {
-      console.error('Pipeline run error:', err);
-    }
-    scheduleNext();
-  }, interval);
-}
-
-/** Determine interval based on current time and market hours */
-function getNextInterval(): number {
-  const now = new Date();
-  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
-  const day = et.getDay();
-  const hours = et.getHours();
-  const minutes = et.getMinutes();
-  const timeMinutes = hours * 60 + minutes;
-
-  // Weekend (Sat/Sun)
-  if (day === 0 || day === 6) return config.weekendInterval;
-
-  // Pre-market: 4:00 AM – 9:30 AM ET
-  if (timeMinutes >= 240 && timeMinutes < 570) return config.prePostInterval;
-
-  // Market hours: 9:30 AM – 4:00 PM ET
-  if (timeMinutes >= 570 && timeMinutes < 960) return config.marketHoursInterval;
-
-  // After hours: 4:00 PM – 8:00 PM ET
-  if (timeMinutes >= 960 && timeMinutes < 1200) return config.prePostInterval;
-
-  // Quiet hours: 8:00 PM – 4:00 AM ET
-  return config.quietInterval;
+/** Get status snapshot of all registered jobs */
+export function getSchedulerStatus(): {
+  state: 'running' | 'stopped';
+  jobs: { name: string; schedule: string; running: boolean }[];
+} {
+  return {
+    state: started ? 'running' : 'stopped',
+    jobs: jobs.map(({ name, schedule, running }) => ({ name, schedule, running })),
+  };
 }

@@ -1,6 +1,9 @@
 import Stripe from 'stripe';
 import { getDb } from './database.js';
 import type { UserTier } from '@firasa/shared';
+import { createLogger } from '../config/logger.js';
+
+const log = createLogger('billing');
 
 let stripe: Stripe | null = null;
 
@@ -13,11 +16,13 @@ function getStripe(): Stripe {
   return stripe;
 }
 
-// Map tier to Stripe price IDs (configured at startup)
-const TIER_PRICE_IDS: Record<Exclude<UserTier, 'free' | 'admin'>, string> = {
-  pro: process.env.STRIPE_PRO_PRICE_ID ?? '',
-  premium: process.env.STRIPE_PREMIUM_PRICE_ID ?? '',
-};
+// Map tier to Stripe price IDs (resolved at call time so env vars are always fresh)
+function getTierPriceIds(): Record<Exclude<UserTier, 'free' | 'admin'>, string> {
+  return {
+    pro: process.env.STRIPE_PRO_PRICE_ID ?? '',
+    premium: process.env.STRIPE_PREMIUM_PRICE_ID ?? '',
+  };
+}
 
 export async function createCheckoutSession(
   userId: string,
@@ -47,7 +52,7 @@ export async function createCheckoutSession(
   const session = await s.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
-    line_items: [{ price: TIER_PRICE_IDS[tier], quantity: 1 }],
+    line_items: [{ price: getTierPriceIds()[tier], quantity: 1 }],
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata: { userId, tier },
@@ -94,7 +99,7 @@ export async function handleWebhook(rawBody: Buffer, signature: string): Promise
             stripeSubscriptionId: (session.subscription as string) ?? null,
           },
         });
-        console.log(`[BILLING] User ${userId} upgraded to ${tier}`);
+        log.info({ userId, tier }, 'User upgraded');
       }
       break;
     }
@@ -102,7 +107,7 @@ export async function handleWebhook(rawBody: Buffer, signature: string): Promise
     case 'customer.subscription.updated': {
       const sub = event.data.object as Stripe.Subscription;
       const priceId = sub.items.data[0]?.price.id;
-      const newTier = Object.entries(TIER_PRICE_IDS).find(([, id]) => id === priceId)?.[0] as UserTier | undefined;
+      const newTier = Object.entries(getTierPriceIds()).find(([, id]) => id === priceId)?.[0] as UserTier | undefined;
       if (newTier) {
         await db.user.updateMany({
           where: { stripeSubscriptionId: sub.id },
@@ -118,7 +123,7 @@ export async function handleWebhook(rawBody: Buffer, signature: string): Promise
         where: { stripeSubscriptionId: sub.id },
         data: { tier: 'free', stripeSubscriptionId: null },
       });
-      console.log(`[BILLING] Subscription ${sub.id} cancelled — downgraded to free`);
+      log.info({ subscriptionId: sub.id }, 'Subscription cancelled — downgraded to free');
       break;
     }
 

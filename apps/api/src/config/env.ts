@@ -37,6 +37,16 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
+  // Stripe price IDs (required when STRIPE_SECRET_KEY is set)
+  STRIPE_PRO_PRICE_ID: z.string().optional(),
+  STRIPE_PREMIUM_PRICE_ID: z.string().optional(),
+
+  // SendGrid (optional)
+  SENDGRID_API_KEY: z.string().optional(),
+
+  // Sentry (optional)
+  SENTRY_DSN: z.string().optional(),
+
   // App config
   CORS_ORIGIN: z.string().default('http://localhost:3011'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
@@ -62,6 +72,19 @@ export function validateEnv(): Env {
   }
 
   _env = result.data;
+
+  // Production-specific validations
+  if (_env.NODE_ENV === 'production') {
+    const prodRequired: (keyof Env)[] = [
+      'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET',
+      'STRIPE_PRO_PRICE_ID', 'STRIPE_PREMIUM_PRICE_ID',
+    ];
+    const missing = prodRequired.filter((k) => !_env![k]);
+    if (missing.length > 0) {
+      console.warn(`⚠️  Production warnings — missing optional vars: ${missing.join(', ')}`);
+    }
+  }
+
   return _env;
 }
 

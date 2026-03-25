@@ -3,6 +3,8 @@ import './globals.css';
 import { Providers } from './providers';
 import { LayoutShell } from '../components/layout/layout-shell';
 import { PwaInstallPrompt } from '../components/pwa/install-prompt';
+import { DisclaimerBanner } from '../components/disclaimer-banner';
+import { FooterDisclaimer } from '../components/layout/footer-disclaimer';
 
 export const metadata: Metadata = {
   title: 'Firasa — Trading Intelligence',
@@ -22,7 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-gray-950 text-gray-100 min-h-screen">
         <Providers>
           <LayoutShell>{children}</LayoutShell>
+          <FooterDisclaimer />
           <PwaInstallPrompt />
+          <DisclaimerBanner />
         </Providers>
       </body>
     </html>

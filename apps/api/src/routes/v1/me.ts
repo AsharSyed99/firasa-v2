@@ -58,3 +58,9 @@ meRouter.patch(
     res.json(response);
   }
 );
+
+/** DELETE /api/v1/me/account — Permanently delete account and all data */
+meRouter.delete('/account', async (req, res) => {
+  await userService.deleteAccount(req.user!.id);
+  res.json({ success: true, data: { message: 'Account permanently deleted' } });
+});

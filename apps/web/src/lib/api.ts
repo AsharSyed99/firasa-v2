@@ -43,6 +43,12 @@ class ApiClient {
     return this.request<{ data: import('@firasa/shared').UserDto }>('/api/v1/me');
   }
 
+  async deleteAccount() {
+    return this.request<{ success: boolean }>('/api/v1/me/account', {
+      method: 'DELETE',
+    });
+  }
+
   async getPreferences() {
     return this.request<{ data: import('@firasa/shared').UserPreferenceDto }>('/api/v1/me/preferences');
   }

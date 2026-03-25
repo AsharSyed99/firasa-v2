@@ -10,6 +10,9 @@ export default function SettingsPage() {
   const [prefs, setPrefs] = useState<UserPreferenceDto | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteInput, setDeleteInput] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -53,6 +56,21 @@ export default function SettingsPage() {
               <span className="text-gray-400">Plan</span>
               <span className="capitalize text-emerald-400">{user?.tier ?? 'free'}</span>
             </div>
+            {user?.tier === 'free' && (
+              <div className="mt-3">
+                <a
+                  href={`${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/billing/pricing`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-emerald-400 hover:text-emerald-300 underline"
+                >
+                  Upgrade your plan →
+                </a>
+                <p className="text-xs text-gray-600 mt-1">
+                  Subscriptions are managed on our website
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -119,6 +137,60 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Danger Zone */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4 text-red-400">Danger Zone</h2>
+          <div className="bg-gray-900 rounded-xl p-5 border border-red-900/50">
+            <p className="text-gray-400 text-sm mb-4">
+              Permanently delete your account and all associated data. This action cannot be undone.
+            </p>
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 bg-red-900/50 hover:bg-red-900 text-red-400 rounded-lg text-sm transition"
+              >
+                Delete My Account
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-red-400 text-sm font-medium">
+                  Type DELETE to confirm permanent account deletion:
+                </p>
+                <input
+                  type="text"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  placeholder="Type DELETE"
+                  className="w-full bg-gray-800 border border-red-900 rounded px-3 py-2 text-white"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      setDeleting(true);
+                      try {
+                        await api.deleteAccount();
+                        signOut();
+                      } catch {
+                        setDeleting(false);
+                      }
+                    }}
+                    disabled={deleteInput !== 'DELETE' || deleting}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-30 text-white rounded-lg text-sm transition"
+                  >
+                    {deleting ? 'Deleting...' : 'Permanently Delete'}
+                  </button>
+                  <button
+                    onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); }}
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

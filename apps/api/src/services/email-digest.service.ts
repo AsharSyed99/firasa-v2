@@ -1,4 +1,8 @@
 import { getDb } from './database.js';
+import { createLogger } from '../config/logger.js';
+import { sendEmail } from '../providers/sendgrid.js';
+
+const log = createLogger('email');
 
 interface DigestEntry {
   guruName: string;
@@ -195,9 +199,17 @@ export async function runDailyDigest(): Promise<{ sent: number; skipped: number 
       continue;
     }
 
-    // In production, this would call SendGrid/SES
-    // For now, log the digest
-    console.log(`[EMAIL] Would send digest to ${digest.email}: ${digest.totalSignals} signals`);
+    const html = formatDigestHtml(digest);
+    const text = formatDigestText(digest);
+    const delivered = await sendEmail({
+      to: digest.email,
+      subject: `🔥 Firasa Daily: ${digest.totalSignals} signals | Avg Score ${digest.avgScore}`,
+      html,
+      text,
+    });
+    if (!delivered) {
+      log.warn({ email: digest.email }, 'SendGrid not configured — skipped digest');
+    }
     sent++;
   }
 

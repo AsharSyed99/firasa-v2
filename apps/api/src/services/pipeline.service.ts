@@ -4,6 +4,9 @@ import { fetchUserTweets, lookupUserId, isRetweet, isQuoteTweet } from '../provi
 import { getQuotes, getPriceAtTime } from '../providers/yahoo-finance.js';
 import { getQuote as getFinnhubQuote } from '../providers/finnhub.js';
 import { chatCompletion, analyzeImage } from '../providers/groq.js';
+import { createLogger } from '../config/logger.js';
+
+const log = createLogger('pipeline');
 
 /** Common stock ticker pattern */
 const TICKER_REGEX = /\$([A-Z]{1,5})\b/g;
@@ -74,7 +77,7 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
 
       // 2. Skip pure retweets — not the guru's own opinion
       if (isRetweet(tweet)) {
-        console.log(`[PIPELINE] Skipping retweet from @${guru.twitterHandle}: ${tweet.id}`);
+        log.info({ guruHandle: guru.twitterHandle, tweetId: tweet.id }, 'Skipping retweet');
         continue;
       }
 
@@ -94,7 +97,7 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
             reasoning: `${recentSame.reasoning ?? ''}\n[+1 mention: ${tweet.text.slice(0, 80)}...]`,
           },
         });
-        console.log(`[PIPELINE] Merged repeated $${tickers[0]} mention into signal ${recentSame.id}`);
+        log.info({ ticker: tickers[0], signalId: recentSame.id }, 'Merged repeated mention');
         result.signalsCreated++; // Count as processed
         continue;
       }
@@ -170,7 +173,7 @@ export async function runPipelineAll(): Promise<PipelineResult[]> {
   const results: PipelineResult[] = [];
   for (const guruId of prioritizedIds) {
     if (!consumePollCredit()) {
-      console.warn('Poll budget exhausted — stopping pipeline run');
+      log.warn('Poll budget exhausted — stopping pipeline run');
       break;
     }
     const result = await runPipelineForGuru(guruId);

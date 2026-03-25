@@ -85,6 +85,23 @@ export async function updateUserGuruConfig(
   return mapGuruConfigToDto(config);
 }
 
+/** Delete user account and ALL associated data (GDPR + App Store requirement) */
+export async function deleteAccount(userId: string): Promise<void> {
+  const db = getDb();
+
+  // Delete in order to respect foreign keys
+  await db.notification.deleteMany({ where: { userId } });
+  await db.priceAlert.deleteMany({ where: { userId } });
+  await db.watchlistItem.deleteMany({ where: { userId } });
+  await db.portfolioPosition.deleteMany({ where: { userId } });
+  await db.alertLog.deleteMany({ where: { userId } });
+  await db.userQuota.deleteMany({ where: { userId } });
+  await db.userDevice.deleteMany({ where: { userId } });
+  await db.userGuruConfig.deleteMany({ where: { userId } });
+  await db.userPreference.deleteMany({ where: { userId } });
+  await db.user.delete({ where: { id: userId } });
+}
+
 // ─── Mappers ─────────────────────────────────────────────────
 
 function mapUserToDto(user: {

@@ -1,19 +1,22 @@
 import type { Request, Response, NextFunction } from 'express';
+import { createLogger } from '../config/logger.js';
 
-/** Log request method, path, status, and duration */
+const log = createLogger('http');
+
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
   const start = Date.now();
 
   res.on('finish', () => {
     const duration = Date.now() - start;
-    const level = res.statusCode >= 400 ? 'warn' : 'info';
-    const msg = `${req.method} ${req.path} ${res.statusCode} ${duration}ms`;
+    const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
 
-    if (level === 'warn') {
-      console.warn(msg);
-    } else if (process.env.LOG_LEVEL === 'debug') {
-      console.log(msg);
-    }
+    log[level]({
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration,
+      userId: (req as any).user?.id,
+    }, `${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
   });
 
   next();
