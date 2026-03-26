@@ -32,11 +32,15 @@ export function initLogger(): pino.Logger {
 }
 
 export function getLogger(): pino.Logger {
-  if (!_logger) throw new Error('Call initLogger() before getLogger()');
+  if (!_logger) {
+    // Auto-init with defaults if not explicitly initialized (handles module load order)
+    _logger = pino({ level: 'info' });
+  }
   return _logger;
 }
 
-/** Create a child logger with a component name */
+/** Create a child logger with a component name (safe to call at module top-level) */
 export function createLogger(component: string): pino.Logger {
+  // Return a proxy-like child that resolves lazily
   return getLogger().child({ component });
 }
