@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prebuild": "cd ../web && npm run build:mobile",
     "sync": "npx cap sync",
-    "open:android": "npx cap open android",
+    "sync:ios": "npx cap sync ios",
     "open:ios": "npx cap open ios",
-    "run:android": "npx cap run android",
+    "open:android": "npx cap open android",
     "run:ios": "npx cap run ios",
-    "build": "echo 'Build web app first, then cap sync'"
+    "run:android": "npx cap run android",
+    "build:ios": "cd ../web && npm run build:mobile && cd ../mobile && npx cap sync ios",
+    "build": "cd ../web && npm run build:mobile && npx cap sync"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

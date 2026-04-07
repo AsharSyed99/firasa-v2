@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3011",
     "build": "next build",
+    "build:mobile": "cross-env CAPACITOR_BUILD=true next build",
     "start": "next start -p 3011",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
@@ -21,6 +22,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "cross-env": "^10.1.0",
     "typescript": "^5.7.0"
   }
 }

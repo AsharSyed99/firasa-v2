@@ -1,21 +1,25 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const config: CapacitorConfig = {
   appId: 'app.firasa.trading',
   appName: 'Firasa',
   webDir: '../web/out',
-  server: {
-    // For dev: point to Next.js dev server
-    // Comment this out for production builds
-    url: 'http://10.0.2.2:3011', // Android emulator localhost
-    cleartext: true,
-  },
+  // In dev, point to local Next.js server. In prod, use bundled static files.
+  ...(isDev ? {
+    server: {
+      url: 'http://localhost:3011',
+      cleartext: true,
+    },
+  } : {}),
   plugins: {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
     },
     SplashScreen: {
       launchAutoHide: true,
+      launchShowDuration: 2000,
       backgroundColor: '#030712',
       showSpinner: false,
     },
@@ -27,6 +31,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic',
     scheme: 'Firasa',
+    preferredContentMode: 'mobile',
   },
   android: {
     backgroundColor: '#030712',
