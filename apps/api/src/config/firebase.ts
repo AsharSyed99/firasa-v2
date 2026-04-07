@@ -13,7 +13,7 @@ export function initFirebase(): void {
   const env = getEnv();
 
   // Allow running without Firebase in development (placeholder key)
-  if (env.FIREBASE_PRIVATE_KEY_BASE64 === 'PLACEHOLDER' && env.NODE_ENV === 'development') {
+  if (env.FIREBASE_PRIVATE_KEY_BASE64 === 'PLACEHOLDER' && env.NODE_ENV !== 'production') {
     log.warn('Firebase credentials not configured — running in dev mode (auth disabled)');
     devMode = true;
     initialized = true;
