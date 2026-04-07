@@ -13,3 +13,7 @@ Thumbs.db
 ios/
 android/
 *.tsbuildinfo
+
+# Capacitor mobile build output
+out/
+apps/web/out/
