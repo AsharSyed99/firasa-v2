@@ -265,6 +265,21 @@ class ApiClient {
   async getWeeklyReport() {
     return this.request<{ data: WeeklyReportDto }>('/api/v1/weekly-report');
   }
+
+  // ─── Smart Money ──────────────────────────────────────────
+
+  async getSmartMoney(ticker: string, guruAction?: string, guruConfidence?: number, guruScore?: number) {
+    const params = new URLSearchParams();
+    if (guruAction) params.set('guruAction', guruAction);
+    if (guruConfidence !== undefined) params.set('guruConfidence', String(guruConfidence));
+    if (guruScore !== undefined) params.set('guruScore', String(guruScore));
+    const qs = params.toString();
+    return this.request<{ data: SmartMoneyDto }>(`/api/v1/smart-money/${ticker}${qs ? `?${qs}` : ''}`);
+  }
+
+  async getMarketOverview() {
+    return this.request<{ data: MarketOverviewDto }>('/api/v1/smart-money/market/overview');
+  }
 }
 
 export interface WeeklyReportDto {
@@ -281,6 +296,38 @@ export interface WeeklyReportDto {
   topSectors: { sector: string; signalCount: number }[];
   streakStatus: { current: number; best: number };
   weekOverWeekChange: number;
+}
+
+export interface SmartMoneyDto {
+  ticker: string;
+  guruSignal: { action: string; confidence: number; score: number };
+  optionsFlow: {
+    bullishVolume: number;
+    bearishVolume: number;
+    netSentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    unusualActivity: boolean;
+  } | null;
+  darkPool: {
+    totalVolume: number;
+    largeBlockCount: number;
+    netDirection: 'BUY' | 'SELL' | 'MIXED';
+  } | null;
+  congressTrades: {
+    recentTrades: Array<{ politician: string; action: string; amount: string; date: string }>;
+  } | null;
+  insiderTrades: {
+    recentTrades: Array<{ name: string; title: string; action: string; shares: number; date: string }>;
+  } | null;
+  confirmationScore: number;
+  summary: string;
+}
+
+export interface MarketOverviewDto {
+  netCallVolume: number;
+  netPutVolume: number;
+  overallSentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  topBullish: string[];
+  topBearish: string[];
 }
 
 export interface PriceAlertDto {
