@@ -4,6 +4,8 @@ import { fetchUserTweets, lookupUserId, isRetweet, isQuoteTweet } from '../provi
 import { getQuotes, getPriceAtTime } from '../providers/yahoo-finance.js';
 import { getQuote as getFinnhubQuote } from '../providers/finnhub.js';
 import { chatCompletion, analyzeImage } from '../providers/groq.js';
+import { getEnv } from '../config/env.js';
+import { enrichWithSmartMoney } from './smart-money.service.js';
 import { createLogger } from '../config/logger.js';
 
 const log = createLogger('pipeline');
@@ -127,7 +129,7 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
       const priceAtTweet = await getPriceAtTime(tickers[0], tweetTime);
 
       // 9. Persist signal
-      await db.signal.create({
+      const signal = await db.signal.create({
         data: {
           guruId,
           tweetId: tweet.id,
@@ -149,6 +151,12 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
           rawEnrichment: JSON.stringify({ quotes: Object.fromEntries(quotes), finnhub: finnhubData }),
         },
       });
+
+      // 10. Smart money enrichment (fire-and-forget)
+      if (getEnv().UNUSUAL_WHALES_API_KEY) {
+        enrichWithSmartMoney(signal.id, tickers[0], analysis.action, analysis.confidence, analysis.score)
+          .catch((e) => log.warn({ err: e, signalId: signal.id }, 'Smart money enrichment failed'));
+      }
 
       result.signalsCreated++;
     } catch (err) {

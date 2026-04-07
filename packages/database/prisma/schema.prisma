@@ -144,6 +144,8 @@ model Signal {
   afterHours      Boolean  @default(false) @map("after_hours")
   imageAnalysis   String?  @map("image_analysis")
   rawEnrichment   String?  @map("raw_enrichment") // JSON
+  smartMoneyScore   Int?   @map("smart_money_score")
+  smartMoneySummary String? @map("smart_money_summary")
 
   // Outcome tracking
   price1hLater    Float?   @map("price_1h_later")

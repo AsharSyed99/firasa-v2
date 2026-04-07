@@ -44,6 +44,9 @@ const envSchema = z.object({
   // SendGrid (optional)
   SENDGRID_API_KEY: z.string().optional(),
 
+  // Unusual Whales (optional)
+  UNUSUAL_WHALES_API_KEY: z.string().optional(),
+
   // Sentry (optional)
   SENTRY_DSN: z.string().optional(),
 

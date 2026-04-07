@@ -25,6 +25,7 @@ import { searchRouter } from './search.js';
 import { earningsRouter } from './earnings.js';
 import { correlationRouter } from './correlation.js';
 import { weeklyReportRouter } from './weekly-report.js';
+import { smartMoneyRouter } from './smart-money.js';
 
 export const v1Router = Router();
 
@@ -58,3 +59,4 @@ v1Router.use('/mood', moodRouter);
 v1Router.use('/weekly-report', weeklyReportRouter);
 v1Router.use('/earnings', earningsRouter);
 v1Router.use('/correlation', correlationRouter);
+v1Router.use('/smart-money', smartMoneyRouter);
