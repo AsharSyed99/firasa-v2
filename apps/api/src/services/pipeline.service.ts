@@ -6,6 +6,7 @@ import { getQuote as getFinnhubQuote } from '../providers/finnhub.js';
 import { chatCompletion, analyzeImage } from '../providers/groq.js';
 import { getEnv } from '../config/env.js';
 import { enrichWithSmartMoney } from './smart-money.service.js';
+import { fanOutAlert } from './alert.service.js';
 import { createLogger } from '../config/logger.js';
 
 const log = createLogger('pipeline');
@@ -152,7 +153,21 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
         },
       });
 
-      // 10. Smart money enrichment (fire-and-forget)
+      // 10. Fan out alerts (WhatsApp, push) to subscribed users
+      fanOutAlert({
+        id: signal.id,
+        guruId,
+        tickers: JSON.stringify(tickers),
+        action: analysis.action,
+        score: analysis.score,
+        reasoning: analysis.reasoning,
+        tweetText: tweet.text,
+        entryPrice: priceAtTweet?.price ?? null,
+      }).then((stats) => {
+        log.info({ signalId: signal.id, ...stats }, 'Alert fan-out complete');
+      }).catch((e) => log.warn({ err: e, signalId: signal.id }, 'Alert fan-out failed'));
+
+      // 11. Smart money enrichment (fire-and-forget)
       if (getEnv().UNUSUAL_WHALES_API_KEY) {
         enrichWithSmartMoney(signal.id, tickers[0], analysis.action, analysis.confidence, analysis.score)
           .catch((e) => log.warn({ err: e, signalId: signal.id }, 'Smart money enrichment failed'));

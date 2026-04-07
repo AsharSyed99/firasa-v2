@@ -29,6 +29,7 @@ export interface TickerEnrichment {
  * Uses Yahoo Finance v7 quote endpoint.
  */
 export async function getQuotes(tickers: string[]): Promise<Map<string, TickerEnrichment>> {
+  const map = new Map<string, TickerEnrichment>();
   const symbols = tickers.join(',');
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
 
@@ -37,11 +38,10 @@ export async function getQuotes(tickers: string[]): Promise<Map<string, TickerEn
   });
 
   if (!res.ok) {
-    throw new Error(`Yahoo quote error ${res.status}`);
+    return map;
   }
 
   const data = (await res.json()) as { quoteResponse: { result: YahooQuote[] } };
-  const map = new Map<string, TickerEnrichment>();
 
   for (const q of data.quoteResponse.result) {
     map.set(q.symbol, {
