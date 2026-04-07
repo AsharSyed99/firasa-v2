@@ -47,7 +47,7 @@ async function main() {
         alertThreshold: 30,
         maxAlertsPerDay: 50,
         whatsappEnabled: true,
-        whatsappNumber: '+17782284285',
+        whatsappNumber: '+14252899184',
         pushEnabled: true,
         emailEnabled: false,
         timezone: 'America/Los_Angeles',
@@ -56,12 +56,12 @@ async function main() {
         alertThreshold: 30,
         maxAlertsPerDay: 50,
         whatsappEnabled: true,
-        whatsappNumber: '+17782284285',
+        whatsappNumber: '+14252899184',
         pushEnabled: true,
         timezone: 'America/Los_Angeles',
       },
     });
-    console.log('✅ WhatsApp enabled for +17782284285');
+    console.log('✅ WhatsApp enabled for +14252899184');
   }
 
   // 5. Summary
