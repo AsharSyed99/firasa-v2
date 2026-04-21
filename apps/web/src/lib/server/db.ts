@@ -1,12 +1,15 @@
 /**
  * Serverless database singleton for Vercel.
- * Uses Turso (cloud SQLite) when TURSO_DATABASE_URL is set,
- * otherwise falls back to local SQLite in /tmp (ephemeral).
+ * Uses Turso (@libsql/client) when TURSO_DATABASE_URL is set (persistent),
+ * otherwise falls back to Prisma with local SQLite in /tmp (ephemeral).
+ * Pattern borrowed from sifara-app which uses the same Turso integration.
  */
+import { createClient, type Client, type ResultSet } from '@libsql/client/web';
 import { PrismaClient } from '@firasa/database';
-import { createClient } from '@libsql/client';
-import { PrismaLibSql } from '@prisma/adapter-libsql';
 
+type DbMode = 'turso' | 'prisma';
+let mode: DbMode | null = null;
+let tursoClient: Client | null = null;
 let prisma: PrismaClient | null = null;
 let schemaReady = false;
 
@@ -65,7 +68,6 @@ const SEED_SQL = [
   `INSERT OR IGNORE INTO user_preferences (id, user_id, alert_threshold, max_alerts_per_day, timezone, push_enabled, created_at, updated_at) VALUES ('pref-001', 'dev-001', 50, 10, 'America/New_York', 1, datetime('now'), datetime('now'))`,
 ];
 
-// Import actual data from local database export
 import seedData from './seed-data.json';
 
 function escSql(v: unknown): string {
@@ -75,60 +77,69 @@ function escSql(v: unknown): string {
   return `'${String(v).replace(/'/g, "''")}'`;
 }
 
-async function seedRealData(db: PrismaClient): Promise<void> {
-  // Check if already seeded
-  const guruCount = await db.$queryRawUnsafe('SELECT COUNT(*) as cnt FROM gurus') as { cnt: number }[];
-  if (guruCount[0]?.cnt > 0) return;
+export interface FirasaDb {
+  execute: (sql: string, args?: any[]) => Promise<ResultSet>;
+  mode: DbMode;
+}
 
-  // Seed gurus
+async function seedRealData(db: FirasaDb): Promise<void> {
+  const result = await db.execute('SELECT COUNT(*) as cnt FROM gurus');
+  const cnt = result.rows[0]?.cnt as number;
+  if (cnt > 0) return;
+
   for (const g of (seedData as any).gurus) {
-    await db.$executeRawUnsafe(`INSERT OR IGNORE INTO gurus (id, twitter_handle, twitter_user_id, display_name, category, reliability, is_active, total_signals, profitable_signals, avg_score, last_polled_at, created_at, updated_at)
+    await db.execute(`INSERT OR IGNORE INTO gurus (id, twitter_handle, twitter_user_id, display_name, category, reliability, is_active, total_signals, profitable_signals, avg_score, last_polled_at, created_at, updated_at)
       VALUES (${escSql(g.id)}, ${escSql(g.twitter_handle)}, ${escSql(g.twitter_user_id)}, ${escSql(g.display_name)}, ${escSql(g.category)}, ${escSql(g.reliability)}, ${escSql(g.is_active)}, ${escSql(g.total_signals)}, ${escSql(g.profitable_signals)}, ${escSql(g.avg_score)}, ${escSql(g.last_polled_at)}, ${escSql(g.created_at)}, ${escSql(g.updated_at)})`);
   }
 
-  // Seed signals
   for (const s of (seedData as any).signals) {
-    await db.$executeRawUnsafe(`INSERT OR IGNORE INTO signals (id, guru_id, tweet_id, tweet_text, tweet_created_at, tickers, action, sentiment, confidence, score, reasoning, timeframe, entry_price, entry_price_time, after_hours, image_analysis, raw_enrichment, smart_money_score, smart_money_summary, processed_at, created_at, updated_at)
+    await db.execute(`INSERT OR IGNORE INTO signals (id, guru_id, tweet_id, tweet_text, tweet_created_at, tickers, action, sentiment, confidence, score, reasoning, timeframe, entry_price, entry_price_time, after_hours, image_analysis, raw_enrichment, smart_money_score, smart_money_summary, processed_at, created_at, updated_at)
       VALUES (${escSql(s.id)}, ${escSql(s.guru_id)}, ${escSql(s.tweet_id)}, ${escSql(s.tweet_text)}, ${escSql(s.tweet_created_at)}, ${escSql(s.tickers)}, ${escSql(s.action)}, ${escSql(s.sentiment)}, ${escSql(s.confidence)}, ${escSql(s.score)}, ${escSql(s.reasoning)}, ${escSql(s.timeframe)}, ${escSql(s.entry_price)}, ${escSql(s.entry_price_time)}, ${escSql(s.after_hours)}, ${escSql(s.image_analysis)}, ${escSql(s.raw_enrichment)}, ${escSql(s.smart_money_score)}, ${escSql(s.smart_money_summary)}, ${escSql(s.processed_at)}, ${escSql(s.created_at)}, ${escSql(s.updated_at)})`);
   }
 
   console.log(`✅ Seeded ${(seedData as any).gurus.length} gurus, ${(seedData as any).signals.length} signals`);
 }
 
-export async function getDb(): Promise<PrismaClient> {
-  if (prisma && schemaReady) return prisma;
+export async function getDb(): Promise<FirasaDb> {
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
 
-  if (!prisma) {
-    const tursoUrl = process.env.TURSO_DATABASE_URL;
-    const tursoToken = process.env.TURSO_AUTH_TOKEN;
-
-    if (tursoUrl && tursoToken) {
-      // Turso cloud SQLite — persistent across cold starts
-      const libsql = createClient({ url: tursoUrl, authToken: tursoToken });
-      const adapter = new PrismaLibSql(libsql as any);
-      prisma = new PrismaClient({ adapter, log: ['error'] } as any);
-    } else {
-      // Fallback: local /tmp SQLite (ephemeral on Vercel)
-      const url = process.env.DATABASE_URL || 'file:/tmp/firasa.db';
-      prisma = new PrismaClient({
-        datasources: { db: { url } },
-        log: ['error'],
-      });
-    }
-    await prisma.$connect();
+  if (tursoUrl && tursoToken && !tursoClient) {
+    tursoClient = createClient({ url: tursoUrl, authToken: tursoToken });
+    mode = 'turso';
+    console.log(`✅ Using Turso: ${tursoUrl}`);
   }
+
+  if (!tursoClient && !prisma) {
+    const url = process.env.DATABASE_URL || 'file:/tmp/firasa.db';
+    prisma = new PrismaClient({ datasources: { db: { url } }, log: ['error'] });
+    await prisma.$connect();
+    mode = 'prisma';
+    console.log('✅ Using local SQLite (ephemeral)');
+  }
+
+  const db: FirasaDb = {
+    mode: mode!,
+    execute: async (sql: string, args?: any[]): Promise<ResultSet> => {
+      if (tursoClient) {
+        return tursoClient.execute({ sql, args: args || [] });
+      }
+      const rows = await prisma!.$queryRawUnsafe(sql) as any[];
+      return { rows, columns: [], rowsAffected: 0, lastInsertRowid: undefined } as any;
+    },
+  };
 
   if (!schemaReady) {
     for (const sql of SCHEMA_SQL) {
-      await prisma.$executeRawUnsafe(sql);
+      await db.execute(sql);
     }
     for (const sql of SEED_SQL) {
-      await prisma.$executeRawUnsafe(sql);
+      await db.execute(sql);
     }
-    await seedRealData(prisma);
+    await seedRealData(db);
     schemaReady = true;
     console.log('✅ Schema + data ready');
   }
 
-  return prisma;
+  return db;
 }
