@@ -169,6 +169,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ data: { publicKey: process.env.VAPID_PUBLIC_KEY || '' } });
     }
 
+    // GET /api/v1/push/subscriptions (debug)
+    if (route === 'push/subscriptions') {
+      const subs = await db.execute('SELECT id, user_id, endpoint, created_at FROM web_push_subscriptions');
+      return NextResponse.json({ data: subs.rows });
+    }
+
     // GET /api/v1/notifications
     if (route === 'notifications') {
       return NextResponse.json({ data: [], meta: {} });
