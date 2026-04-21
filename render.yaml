@@ -1,7 +1,7 @@
 services:
   - type: web
     name: firasa-api
-    runtime: docker
+    env: docker
     dockerfilePath: apps/api/Dockerfile
     region: oregon
     plan: free
