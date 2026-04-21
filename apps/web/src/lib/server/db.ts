@@ -1,8 +1,11 @@
 /**
  * Serverless database singleton for Vercel.
- * Uses SQLite in /tmp (ephemeral). Creates schema on cold start.
+ * Uses Turso (cloud SQLite) when TURSO_DATABASE_URL is set,
+ * otherwise falls back to local SQLite in /tmp (ephemeral).
  */
 import { PrismaClient } from '@firasa/database';
+import { createClient } from '@libsql/client';
+import { PrismaLibSql } from '@prisma/adapter-libsql';
 
 let prisma: PrismaClient | null = null;
 let schemaReady = false;
@@ -96,11 +99,22 @@ export async function getDb(): Promise<PrismaClient> {
   if (prisma && schemaReady) return prisma;
 
   if (!prisma) {
-    const url = process.env.DATABASE_URL || 'file:/tmp/firasa.db';
-    prisma = new PrismaClient({
-      datasources: { db: { url } },
-      log: ['error'],
-    });
+    const tursoUrl = process.env.TURSO_DATABASE_URL;
+    const tursoToken = process.env.TURSO_AUTH_TOKEN;
+
+    if (tursoUrl && tursoToken) {
+      // Turso cloud SQLite — persistent across cold starts
+      const libsql = createClient({ url: tursoUrl, authToken: tursoToken });
+      const adapter = new PrismaLibSql(libsql as any);
+      prisma = new PrismaClient({ adapter, log: ['error'] } as any);
+    } else {
+      // Fallback: local /tmp SQLite (ephemeral on Vercel)
+      const url = process.env.DATABASE_URL || 'file:/tmp/firasa.db';
+      prisma = new PrismaClient({
+        datasources: { db: { url } },
+        log: ['error'],
+      });
+    }
     await prisma.$connect();
   }
 

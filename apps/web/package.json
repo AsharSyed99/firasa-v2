@@ -13,6 +13,8 @@
   "dependencies": {
     "@firasa/database": "*",
     "@firasa/shared": "*",
+    "@libsql/client": "^0.17.2",
+    "@prisma/adapter-libsql": "^7.7.0",
     "firebase": "^11.4.0",
     "lucide-react": "^1.8.0",
     "next": "^15.2.0",
