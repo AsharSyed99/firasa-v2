@@ -7,121 +7,92 @@ Phone/Browser → Vercel (Next.js frontend) → Render (Express API) → SQLite
                                           → Web Push (VAPID)
 ```
 
----
+## Current Status
 
-## 1. Deploy API to Render
-
-### Option A: Using render.yaml (Blueprint)
-1. Push code to GitHub
-2. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint**
-3. Connect your GitHub repo
-4. Render will auto-detect `render.yaml` and create the service
-5. Fill in the env vars marked `sync: false` (see below)
-
-### Option B: Manual Setup
-1. Go to Render → **New** → **Web Service**
-2. Connect your GitHub repo
-3. Set **Root Directory** to `.` (monorepo root)
-4. Set **Dockerfile Path** to `apps/api/Dockerfile`
-5. Add a **Disk**: mount path `/data`, size 1 GB
-6. Set env vars (see below)
-
-### API Environment Variables (Render)
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NODE_ENV` | Yes | `production` |
-| `PORT` | Yes | `3010` |
-| `DATABASE_URL` | Yes | `file:/data/firasa.db` |
-| `CORS_ORIGIN` | Yes | Your Vercel URL, e.g. `https://firasa.vercel.app` |
-| `FIREBASE_PROJECT_ID` | Yes | Firebase project ID |
-| `FIREBASE_CLIENT_EMAIL` | Yes | Firebase service account email |
-| `FIREBASE_PRIVATE_KEY_BASE64` | Yes | Base64-encoded Firebase private key (use `PLACEHOLDER` for dev mode) |
-| `X_API_BEARER_TOKEN` | Yes | Twitter/X API bearer token |
-| `GROQ_API_KEY` | Yes | Groq LLM API key |
-| `FINNHUB_API_KEY` | Yes | Finnhub API key |
-| `VAPID_PUBLIC_KEY` | Yes | Web Push VAPID public key (from your .env) |
-| `VAPID_PRIVATE_KEY` | Yes | Web Push VAPID private key (from your .env) |
-| `VAPID_SUBJECT` | Yes | `mailto:support@firasa.app` |
-| `TWILIO_ACCOUNT_SID` | No | For WhatsApp alerts |
-| `TWILIO_AUTH_TOKEN` | No | For WhatsApp alerts |
-| `TWILIO_WHATSAPP_FROM` | No | For WhatsApp alerts |
-| `STRIPE_SECRET_KEY` | No | For billing |
-
-After deploying, note your Render URL (e.g. `https://firasa-api.onrender.com`).
+- ✅ **Frontend**: https://firasa-opal.vercel.app (deployed on Vercel)
+- ⏳ **API**: Needs Render deployment (see below)
 
 ---
 
-## 2. Deploy Frontend to Vercel
+## Deploy API to Render (5 minutes)
 
-1. Go to [Vercel](https://vercel.com) → **Add New Project**
-2. Import your GitHub repo
-3. Set **Root Directory** to `apps/web`
-4. Vercel will auto-detect Next.js
-5. Set env vars (see below)
-6. Deploy!
+### Step 1: One-Click Deploy
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/AsharSyed99/firasa-v2)
 
-### Frontend Environment Variables (Vercel)
+Click the button above. Render will:
+1. Ask you to connect GitHub (if not already)
+2. Auto-detect `render.yaml` and configure the service
+3. Prompt you to fill in secret env vars
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | Yes | Your Render URL, e.g. `https://firasa-api.onrender.com` |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | No* | Firebase web API key |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | No* | Firebase auth domain |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | No* | Firebase project ID |
+### Step 2: Fill in Environment Variables
 
-\* Required for Google Sign-In in production. Without these, the app runs in dev mode with auto-login.
+When prompted, enter these values (copy from `apps/api/.env`):
 
----
+| Variable | Value |
+|----------|-------|
+| `FIREBASE_PROJECT_ID` | Your Firebase project ID (or `placeholder` for dev mode) |
+| `FIREBASE_CLIENT_EMAIL` | Your Firebase email (or `placeholder`) |
+| `FIREBASE_PRIVATE_KEY_BASE64` | Your Firebase key (or `placeholder`) |
+| `X_API_BEARER_TOKEN` | Your Twitter/X API bearer token |
+| `GROQ_API_KEY` | Your Groq API key |
+| `FINNHUB_API_KEY` | Your Finnhub API key |
+| `VAPID_PUBLIC_KEY` | `BDWLNJeSEhBWXj1ZnY90K3YpsbOKoCqpaqjaS3aDqhnjiqsfHKh_T8ECqQ-YmqvxfMhgrWtbiVpGmr67LE2cVio` |
+| `VAPID_PRIVATE_KEY` | Copy from `apps/api/.env` |
 
-## 3. Post-Deployment Checklist
+> **Note:** `CORS_ORIGIN`, `NODE_ENV`, `PORT`, `DATABASE_URL`, and `VAPID_SUBJECT` are already set in `render.yaml`.
 
-- [ ] Set `CORS_ORIGIN` on Render to your Vercel URL
-- [ ] Set `NEXT_PUBLIC_API_URL` on Vercel to your Render URL
-- [ ] Test the API: `curl https://your-api.onrender.com/api/v1`
-- [ ] Test the frontend: visit your Vercel URL
-- [ ] Enable push notifications in your browser
-- [ ] Verify signals load on your phone browser
+### Step 3: Update Vercel API URL
 
----
+After Render deploys, note your API URL (e.g. `https://firasa-api.onrender.com`).
 
-## 4. Push Notifications Setup
-
-Push notifications work out of the box with Web Push (VAPID):
-- VAPID keys are already generated in your `.env`
-- Copy the same keys to Render env vars
-- The service worker (`/sw.js`) handles receiving notifications
-- Users will see a prompt to enable notifications on the dashboard
-
-### Testing Push Locally
+If it's different from `firasa-api`, update on Vercel:
 ```bash
-# Send a test push from the API
-curl -X POST http://localhost:3010/api/v1/admin/test-push \
-  -H "Authorization: Bearer dev-token" \
-  -H "Content-Type: application/json"
+cd apps/web
+vercel env rm NEXT_PUBLIC_API_URL production
+vercel env add NEXT_PUBLIC_API_URL production
+# Enter your actual Render URL
+vercel --prod
+```
+
+### Step 4: Verify
+
+```bash
+# Test API
+curl https://YOUR-RENDER-URL.onrender.com/api/v1
+
+# Visit frontend
+open https://firasa-opal.vercel.app
 ```
 
 ---
 
-## 5. Custom Domain (Optional)
+## Alternative: Manual Render Setup
 
-### Vercel (Frontend)
-1. Go to Project Settings → Domains
-2. Add `firasa.app` or `app.firasa.app`
-3. Update DNS records as instructed
+1. Go to [Render Dashboard](https://dashboard.render.com) → **New** → **Web Service**
+2. Connect your GitHub repo: `AsharSyed99/firasa-v2`
+3. Settings:
+   - **Root Directory**: `.` (monorepo root)
+   - **Runtime**: Docker
+   - **Dockerfile Path**: `apps/api/Dockerfile`
+   - **Plan**: Free
+4. Add a **Disk**: mount path `/data`, size 1 GB
+5. Set env vars (see table above, plus `NODE_ENV=production`, `PORT=3010`, `DATABASE_URL=file:/data/firasa.db`)
+6. Deploy
 
-### Render (API)
-1. Go to Service Settings → Custom Domain
-2. Add `api.firasa.app`
-3. Update DNS records as instructed
-4. Update `CORS_ORIGIN` to match the new frontend domain
-5. Update `NEXT_PUBLIC_API_URL` on Vercel to match the new API domain
+---
+
+## Push Notifications
+
+Push notifications work automatically:
+- VAPID keys are configured in env vars
+- Service worker (`/sw.js`) handles receiving notifications
+- Users see a prompt to enable notifications on the dashboard
+- Works on all modern browsers including iOS Safari 16.4+ ("Add to Home Screen")
 
 ---
 
 ## Notes
 
 - **Render free tier** spins down after 15 minutes of inactivity (first request takes ~30s)
-- **SQLite on Render** requires a persistent disk ($0.25/GB/month on paid plan, included in free tier for 1GB)
-- **Push notifications** work on all modern browsers including iOS Safari 16.4+ (user must "Add to Home Screen")
-- The API runs a scheduler for polling Twitter — on free tier, this only runs while the service is awake
+- **SQLite on Render** uses persistent disk ($0.25/GB/month on paid plan, or 1GB free)
+- The API scheduler polls Twitter every 15 minutes — only runs while the service is awake
