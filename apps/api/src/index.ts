@@ -1,6 +1,8 @@
+import 'dotenv/config';
 import { validateEnv } from './config/env.js';
 import { initLogger, getLogger } from './config/logger.js';
 import { initFirebase } from './config/firebase.js';
+import { initWebPush } from './providers/web-push.js';
 import { createApp } from './app.js';
 import { initDatabase } from './services/database.js';
 import { registerAllJobs } from './services/jobs.js';
@@ -14,8 +16,9 @@ async function main() {
 
   log.info({ env: env.NODE_ENV }, 'Firasa API starting');
 
-  // 2. Initialize Firebase Auth
+  // 2. Initialize Firebase Auth + Web Push
   initFirebase();
+  initWebPush();
 
   // 3. Connect database
   await initDatabase();

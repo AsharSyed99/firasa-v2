@@ -20,8 +20,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-gray-950 text-gray-100 min-h-screen">
+    <html lang="en" className="theme-midnight">
+      <body className="bg-[var(--bg-base)] text-[var(--text-primary)] min-h-screen">
         <Providers>
           <LayoutShell>{children}</LayoutShell>
           <FooterDisclaimer />

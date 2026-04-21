@@ -17,7 +17,23 @@ export function createApp() {
 
   // Security
   app.use(helmet());
-  app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+
+  // CORS — supports comma-separated origins and Vercel preview URLs
+  const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile apps, server-to-server)
+      if (!origin) return callback(null, true);
+      // Exact match
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Vercel preview URL pattern
+      if (allowedOrigins.some((o) => o.includes('.vercel.app')) && origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      callback(null, false);
+    },
+    credentials: true,
+  }));
 
   // Parsing
   app.use(express.json({ limit: '1mb' }));

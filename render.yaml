@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: firasa-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    region: oregon
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3010"
+      - key: DATABASE_URL
+        value: file:/data/firasa.db
+      - key: CORS_ORIGIN
+        sync: false  # Set to your Vercel URL after deploying frontend
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY_BASE64
+        sync: false
+      - key: X_API_BEARER_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:support@firasa.app
+    disk:
+      name: firasa-data
+      mountPath: /data
+      sizeGB: 1

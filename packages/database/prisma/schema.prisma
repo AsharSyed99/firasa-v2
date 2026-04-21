@@ -31,6 +31,7 @@ model User {
   watchlistItems     WatchlistItem[]
   priceAlerts        PriceAlert[]
   notifications      Notification[]
+  webPushSubs        WebPushSubscription[]
 
   @@map("users")
 }
@@ -68,6 +69,20 @@ model UserDevice {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_devices")
+}
+
+model WebPushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("web_push_subscriptions")
 }
 
 model UserGuruConfig {

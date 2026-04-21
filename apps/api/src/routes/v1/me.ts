@@ -64,3 +64,25 @@ meRouter.delete('/account', async (req, res) => {
   await userService.deleteAccount(req.user!.id);
   res.json({ success: true, data: { message: 'Account permanently deleted' } });
 });
+
+/** POST /api/v1/me/push/subscribe — Register a web push subscription */
+meRouter.post('/push/subscribe', async (req, res) => {
+  const { endpoint, keys } = req.body;
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    res.status(400).json({ success: false, error: 'Missing endpoint or keys' });
+    return;
+  }
+  const sub = await userService.upsertWebPushSubscription(req.user!.id, endpoint, keys.p256dh, keys.auth);
+  res.json({ success: true, data: sub });
+});
+
+/** DELETE /api/v1/me/push/unsubscribe — Remove a web push subscription */
+meRouter.delete('/push/unsubscribe', async (req, res) => {
+  const { endpoint } = req.body;
+  if (!endpoint) {
+    res.status(400).json({ success: false, error: 'Missing endpoint' });
+    return;
+  }
+  await userService.deleteWebPushSubscription(req.user!.id, endpoint);
+  res.json({ success: true, data: { message: 'Unsubscribed' } });
+});

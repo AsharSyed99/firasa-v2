@@ -60,6 +60,20 @@ class ApiClient {
     });
   }
 
+  async subscribePush(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }) {
+    return this.request<{ success: boolean }>('/api/v1/me/push/subscribe', {
+      method: 'POST',
+      body: JSON.stringify(subscription),
+    });
+  }
+
+  async unsubscribePush(endpoint: string) {
+    return this.request<{ success: boolean }>('/api/v1/me/push/unsubscribe', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint }),
+    });
+  }
+
   // ─── Gurus ───────────────────────────────────────────────
 
   async getGurus() {

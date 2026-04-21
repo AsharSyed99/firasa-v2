@@ -1,6 +1,7 @@
 import { getDb } from './database.js';
 import { sendWhatsApp } from '../providers/twilio.js';
 import { sendPushNotification } from '../providers/fcm.js';
+import { sendWebPushNotification } from '../providers/web-push.js';
 import type { SignalAction } from '@firasa/shared';
 
 interface SignalForAlert {
@@ -22,15 +23,16 @@ interface SignalForAlert {
 export async function fanOutAlert(signal: SignalForAlert): Promise<{
   whatsappSent: number;
   pushSent: number;
+  webPushSent: number;
   skipped: number;
 }> {
   // Never alert on UNCLEAR or HOLD
   if (signal.action === 'UNCLEAR' || signal.action === 'HOLD') {
-    return { whatsappSent: 0, pushSent: 0, skipped: 0 };
+    return { whatsappSent: 0, pushSent: 0, webPushSent: 0, skipped: 0 };
   }
 
   const db = getDb();
-  const stats = { whatsappSent: 0, pushSent: 0, skipped: 0 };
+  const stats = { whatsappSent: 0, pushSent: 0, webPushSent: 0, skipped: 0 };
 
   // Get all users who follow this guru and aren't muted
   const subscribers = await db.userGuruConfig.findMany({
@@ -45,6 +47,7 @@ export async function fanOutAlert(signal: SignalForAlert): Promise<{
           preferences: true,
           quota: true,
           devices: true,
+          webPushSubs: true,
         },
       },
     },
@@ -113,7 +116,7 @@ export async function fanOutAlert(signal: SignalForAlert): Promise<{
       }
     }
 
-    // Send push to all devices
+    // Send push to all FCM devices
     if (prefs.pushEnabled && user.devices.length > 0) {
       for (const device of user.devices) {
         try {
@@ -123,12 +126,34 @@ export async function fanOutAlert(signal: SignalForAlert): Promise<{
             action: signal.action,
           });
           if (result) {
-            await logAlert(user.id, signal.id, 'push', 'sent');
+            await logAlert(user.id, signal.id, 'push_fcm', 'sent');
             stats.pushSent++;
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          await logAlert(user.id, signal.id, 'push', 'failed', msg);
+          await logAlert(user.id, signal.id, 'push_fcm', 'failed', msg);
+        }
+      }
+    }
+
+    // Send web push to all browser subscriptions
+    if (prefs.pushEnabled && user.webPushSubs.length > 0) {
+      const title = `${signal.action} ${tickers[0]} (Score: ${signal.score})`;
+      for (const sub of user.webPushSubs) {
+        const result = await sendWebPushNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          title,
+          message,
+          { signalId: signal.id, action: signal.action, url: '/dashboard' },
+        );
+        if (result === true) {
+          await logAlert(user.id, signal.id, 'push_web', 'sent');
+          stats.webPushSent++;
+        } else if (result === 'gone') {
+          // Stale subscription — clean up
+          await db.webPushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+        } else {
+          await logAlert(user.id, signal.id, 'push_web', 'failed', 'send returned false');
         }
       }
     }

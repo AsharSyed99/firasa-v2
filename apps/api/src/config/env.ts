@@ -50,6 +50,11 @@ const envSchema = z.object({
   // Sentry (optional)
   SENTRY_DSN: z.string().optional(),
 
+  // Web Push VAPID (optional in dev)
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().optional(),
+
   // App config
   CORS_ORIGIN: z.string().default('http://localhost:3011'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),

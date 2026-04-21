@@ -97,6 +97,7 @@ export async function deleteAccount(userId: string): Promise<void> {
   await db.alertLog.deleteMany({ where: { userId } });
   await db.userQuota.deleteMany({ where: { userId } });
   await db.userDevice.deleteMany({ where: { userId } });
+  await db.webPushSubscription.deleteMany({ where: { userId } });
   await db.userGuruConfig.deleteMany({ where: { userId } });
   await db.userPreference.deleteMany({ where: { userId } });
   await db.user.delete({ where: { id: userId } });
@@ -151,4 +152,27 @@ function mapGuruConfigToDto(config: {
     isMuted: config.isMuted,
     customWeight: config.customWeight,
   };
+}
+
+// ─── Web Push Subscriptions ──────────────────────────────────
+
+export async function upsertWebPushSubscription(
+  userId: string,
+  endpoint: string,
+  p256dh: string,
+  auth: string,
+) {
+  const db = getDb();
+  return db.webPushSubscription.upsert({
+    where: { endpoint },
+    create: { userId, endpoint, p256dh, auth },
+    update: { userId, p256dh, auth },
+  });
+}
+
+export async function deleteWebPushSubscription(userId: string, endpoint: string) {
+  const db = getDb();
+  await db.webPushSubscription.deleteMany({
+    where: { userId, endpoint },
+  });
 }

@@ -33,6 +33,16 @@ v1Router.get('/', (_req, res) => {
   res.json({ api: 'firasa', version: 'v1' });
 });
 
+// Public VAPID key endpoint (no auth needed for push subscription)
+v1Router.get('/push/vapid-key', (_req, res) => {
+  const key = process.env.VAPID_PUBLIC_KEY;
+  if (!key) {
+    res.status(503).json({ success: false, error: 'Web push not configured' });
+    return;
+  }
+  res.json({ success: true, data: { publicKey: key } });
+});
+
 v1Router.use('/gurus', guruRouter);
 v1Router.use('/me', meRouter);
 v1Router.use('/signals', signalRouter);

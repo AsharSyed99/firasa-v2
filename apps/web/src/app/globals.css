@@ -1,8 +1,164 @@
 @import "tailwindcss";
 
-:root {
-  --foreground: #f5f5f5;
-  --background: #0a0a0a;
+/* ─── Theme: Midnight (default) ─ deep dark + emerald ──────── */
+:root,
+.theme-midnight {
+  --bg-base: #030712;
+  --bg-surface: rgba(17, 24, 39, 0.7);
+  --bg-surface-hover: rgba(17, 24, 39, 0.9);
+  --bg-card: rgba(17, 24, 39, 0.5);
+  --bg-elevated: #1f2937;
+  --border: rgba(55, 65, 81, 0.4);
+  --border-hover: rgba(75, 85, 99, 0.6);
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --text-faint: #4b5563;
+  --accent: #34d399;
+  --accent-dim: rgba(52, 211, 153, 0.15);
+  --accent-ring: rgba(52, 211, 153, 0.25);
+  --foreground: #f3f4f6;
+  --background: #030712;
+}
+
+/* ─── Theme: Navy Gold ─ matches Arabic logo ───────────────── */
+.theme-navy {
+  --bg-base: #0c1425;
+  --bg-surface: rgba(15, 23, 42, 0.75);
+  --bg-surface-hover: rgba(15, 23, 42, 0.95);
+  --bg-card: rgba(15, 23, 42, 0.5);
+  --bg-elevated: #1e293b;
+  --border: rgba(51, 65, 85, 0.45);
+  --border-hover: rgba(71, 85, 105, 0.6);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-faint: #475569;
+  --accent: #d4a843;
+  --accent-dim: rgba(212, 168, 67, 0.15);
+  --accent-ring: rgba(212, 168, 67, 0.25);
+  --foreground: #e2e8f0;
+  --background: #0c1425;
+}
+
+/* ─── Theme: Slate ─ cool blue + cyan ──────────────────────── */
+.theme-slate {
+  --bg-base: #0f172a;
+  --bg-surface: rgba(30, 41, 59, 0.7);
+  --bg-surface-hover: rgba(30, 41, 59, 0.9);
+  --bg-card: rgba(30, 41, 59, 0.4);
+  --bg-elevated: #334155;
+  --border: rgba(71, 85, 105, 0.45);
+  --border-hover: rgba(100, 116, 139, 0.5);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-faint: #475569;
+  --accent: #22d3ee;
+  --accent-dim: rgba(34, 211, 238, 0.15);
+  --accent-ring: rgba(34, 211, 238, 0.25);
+  --foreground: #e2e8f0;
+  --background: #0f172a;
+}
+
+/* ─── Theme: Obsidian ─ pure black + white ─────────────────── */
+.theme-obsidian {
+  --bg-base: #000000;
+  --bg-surface: rgba(14, 14, 14, 0.8);
+  --bg-surface-hover: rgba(20, 20, 20, 0.95);
+  --bg-card: rgba(14, 14, 14, 0.5);
+  --bg-elevated: #1a1a1a;
+  --border: rgba(38, 38, 38, 0.6);
+  --border-hover: rgba(64, 64, 64, 0.5);
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-faint: #52525b;
+  --accent: #ffffff;
+  --accent-dim: rgba(255, 255, 255, 0.08);
+  --accent-ring: rgba(255, 255, 255, 0.15);
+  --foreground: #fafafa;
+  --background: #000000;
+}
+
+/* ─── Theme: Aurora ─ northern lights + violet ─────────────── */
+.theme-aurora {
+  --bg-base: #0d0b21;
+  --bg-surface: rgba(22, 18, 48, 0.75);
+  --bg-surface-hover: rgba(28, 22, 60, 0.9);
+  --bg-card: rgba(22, 18, 48, 0.45);
+  --bg-elevated: #1e1640;
+  --border: rgba(55, 40, 100, 0.4);
+  --border-hover: rgba(80, 60, 140, 0.5);
+  --text-primary: #e8e0f0;
+  --text-secondary: #a78bfa;
+  --text-muted: #7c6aaf;
+  --text-faint: #5b4d8a;
+  --accent: #a78bfa;
+  --accent-dim: rgba(167, 139, 250, 0.15);
+  --accent-ring: rgba(167, 139, 250, 0.25);
+  --foreground: #e8e0f0;
+  --background: #0d0b21;
+}
+
+/* ─── Theme: Ember ─ charcoal + warm orange ────────────────── */
+.theme-ember {
+  --bg-base: #1a1210;
+  --bg-surface: rgba(30, 22, 18, 0.75);
+  --bg-surface-hover: rgba(38, 28, 22, 0.9);
+  --bg-card: rgba(30, 22, 18, 0.45);
+  --bg-elevated: #2d2018;
+  --border: rgba(80, 55, 35, 0.45);
+  --border-hover: rgba(110, 75, 45, 0.5);
+  --text-primary: #f5ebe0;
+  --text-secondary: #c2a88a;
+  --text-muted: #8b7355;
+  --text-faint: #6b5540;
+  --accent: #f97316;
+  --accent-dim: rgba(249, 115, 22, 0.15);
+  --accent-ring: rgba(249, 115, 22, 0.25);
+  --foreground: #f5ebe0;
+  --background: #1a1210;
+}
+
+/* ─── Theme: Ocean ─ deep sea + teal ───────────────────────── */
+.theme-ocean {
+  --bg-base: #071a1f;
+  --bg-surface: rgba(10, 30, 38, 0.75);
+  --bg-surface-hover: rgba(14, 38, 48, 0.9);
+  --bg-card: rgba(10, 30, 38, 0.45);
+  --bg-elevated: #0f2b35;
+  --border: rgba(25, 70, 85, 0.45);
+  --border-hover: rgba(35, 95, 115, 0.5);
+  --text-primary: #e0f2f1;
+  --text-secondary: #80cbc4;
+  --text-muted: #4db6ac;
+  --text-faint: #2d8a82;
+  --accent: #14b8a6;
+  --accent-dim: rgba(20, 184, 166, 0.15);
+  --accent-ring: rgba(20, 184, 166, 0.25);
+  --foreground: #e0f2f1;
+  --background: #071a1f;
+}
+
+/* ─── Theme: Phantom ─ dark gray + electric blue ───────────── */
+.theme-phantom {
+  --bg-base: #101014;
+  --bg-surface: rgba(22, 22, 28, 0.75);
+  --bg-surface-hover: rgba(28, 28, 36, 0.9);
+  --bg-card: rgba(22, 22, 28, 0.45);
+  --bg-elevated: #1e1e28;
+  --border: rgba(50, 50, 65, 0.5);
+  --border-hover: rgba(70, 70, 90, 0.5);
+  --text-primary: #e4e4f0;
+  --text-secondary: #9898b8;
+  --text-muted: #6868a0;
+  --text-faint: #4a4a78;
+  --accent: #3b82f6;
+  --accent-dim: rgba(59, 130, 246, 0.15);
+  --accent-ring: rgba(59, 130, 246, 0.25);
+  --foreground: #e4e4f0;
+  --background: #101014;
 }
 
 body {
@@ -11,19 +167,35 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* Light theme overrides */
-.light-theme {
-  --foreground: #111827;
-  --background: #ffffff;
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
-  --bg-card: #ffffff;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --border: #e5e7eb;
-}
-
 /* iOS safe area for bottom nav */
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Signal feed animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out both;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Hide scrollbar for horizontal scroll areas */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

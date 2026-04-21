@@ -8,15 +8,15 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-950">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500" />
+      <div className="flex items-center justify-center min-h-screen" style={{ background: 'var(--bg-base)' }}>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2" style={{ borderColor: 'var(--accent)' }} />
       </div>
     );
   }
 
-  // Not signed in → show landing page
+  // Not signed in → go to dashboard (it has its own sign-in screen)
   if (!user) {
-    redirect('/landing');
+    redirect('/dashboard');
   }
 
   // Signed in but not onboarded → onboarding
