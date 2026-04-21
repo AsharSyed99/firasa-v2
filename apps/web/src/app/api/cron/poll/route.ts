@@ -16,7 +16,21 @@ export const maxDuration = 60; // allow up to 60s for pipeline
 // ─── Config ──────────────────────────────────────────────────
 
 const TICKER_REGEX = /\$([A-Z]{1,5})\b/g;
-const TICKER_BLACKLIST = new Set(['I', 'A', 'AM', 'PM', 'US', 'CEO', 'IPO', 'ETF', 'AI']);
+const TICKER_BLACKLIST = new Set(['I', 'A', 'AM', 'PM', 'US', 'CEO', 'IPO', 'ETF', 'AI', 'USD', 'THE', 'ALL', 'NEW', 'TOP', 'NOW']);
+
+// Common crypto/stock name → ticker mapping for tweets without $TICKER format
+const NAME_TO_TICKER: Record<string, string> = {
+  'bitcoin': 'BTC', 'btc': 'BTC', '#bitcoin': 'BTC',
+  'ethereum': 'ETH', 'eth': 'ETH', '#ethereum': 'ETH',
+  'solana': 'SOL', 'sol': 'SOL', '#solana': 'SOL',
+  'xrp': 'XRP', '#xrp': 'XRP', 'ripple': 'XRP',
+  'dogecoin': 'DOGE', 'doge': 'DOGE', '#dogecoin': 'DOGE',
+  'cardano': 'ADA', '#cardano': 'ADA',
+  'tesla': 'TSLA', 'nvidia': 'NVDA', 'apple': 'AAPL',
+  'amazon': 'AMZN', 'google': 'GOOGL', 'microsoft': 'MSFT',
+  'microstrategy': 'MSTR', '#mstr': 'MSTR',
+  'spy': 'SPY', 'qqq': 'QQQ',
+};
 
 // ─── Twitter API ─────────────────────────────────────────────
 
@@ -167,9 +181,15 @@ async function getPriceAtTime(ticker: string, targetTime: Date) {
 // ─── Helpers ─────────────────────────────────────────────────
 
 function extractTickers(text: string): string[] {
-  const matches = [...text.matchAll(TICKER_REGEX)];
   const tickers = new Set<string>();
+  // Match $TICKER cashtags
+  const matches = [...text.matchAll(TICKER_REGEX)];
   for (const m of matches) if (!TICKER_BLACKLIST.has(m[1])) tickers.add(m[1]);
+  // Match common names/hashtags
+  const lower = text.toLowerCase();
+  for (const [name, ticker] of Object.entries(NAME_TO_TICKER)) {
+    if (lower.includes(name)) tickers.add(ticker);
+  }
   return [...tickers];
 }
 
