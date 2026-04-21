@@ -216,9 +216,22 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const { path } = await params;
     const route = path.join('/');
-    await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({})) as any;
 
     if (route === 'me/push/subscribe') {
+      const { endpoint, keys } = body;
+      if (!endpoint || !keys?.p256dh || !keys?.auth) {
+        return NextResponse.json({ error: 'Missing endpoint or keys' }, { status: 400 });
+      }
+      const db = await getDb();
+      const id = 'wps_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      const userId = 'dev-user';
+      // Upsert: delete existing then insert
+      await db.execute(`DELETE FROM web_push_subscriptions WHERE endpoint = '${endpoint.replace(/'/g, "''")}'`);
+      await db.execute(
+        `INSERT INTO web_push_subscriptions (id, user_id, endpoint, p256dh, auth, created_at)
+         VALUES ('${id}', '${userId}', '${endpoint.replace(/'/g, "''")}', '${keys.p256dh.replace(/'/g, "''")}', '${keys.auth.replace(/'/g, "''")}', datetime('now'))`
+      );
       return NextResponse.json({ success: true });
     }
 
@@ -246,12 +259,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
     const { path } = await params;
     const route = path.join('/');
 
     if (route === 'me/push/unsubscribe') {
+      const body = await req.json().catch(() => ({})) as any;
+      if (body.endpoint) {
+        const db = await getDb();
+        await db.execute(`DELETE FROM web_push_subscriptions WHERE endpoint = '${body.endpoint.replace(/'/g, "''")}'`);
+      }
       return NextResponse.json({ success: true });
     }
 

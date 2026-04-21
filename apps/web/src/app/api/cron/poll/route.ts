@@ -7,6 +7,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/server/db';
+import webpush from 'web-push';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -183,6 +184,40 @@ function cuid(): string {
   return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
 }
 
+// ─── Push Notifications ──────────────────────────────────────
+
+async function sendPushNotifications(db: any, signal: { id: string; tickers: string[]; action: string; guruHandle: string; score: number }) {
+  const vapidPublic = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.VAPID_SUBJECT;
+  if (!vapidPublic || !vapidPrivate || !vapidSubject) return;
+
+  webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
+
+  const subs = await db.execute('SELECT * FROM web_push_subscriptions');
+  if (subs.rows.length === 0) return;
+
+  const payload = JSON.stringify({
+    title: `${signal.action} ${signal.tickers.join(', ')}`,
+    body: `${signal.guruHandle} — Score: ${signal.score}/100`,
+    data: { signalId: signal.id, url: '/dashboard' },
+  });
+
+  for (const sub of subs.rows as any[]) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payload
+      );
+    } catch (err: any) {
+      // Remove expired/invalid subscriptions
+      if (err.statusCode === 404 || err.statusCode === 410) {
+        await db.execute(`DELETE FROM web_push_subscriptions WHERE id = ${escSql(sub.id)}`);
+      }
+    }
+  }
+}
+
 // ─── Main Pipeline ───────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -190,7 +225,8 @@ export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
     const authHeader = req.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    const xCronSecret = req.headers.get('x-cron-secret');
+    if (authHeader !== `Bearer ${cronSecret}` && xCronSecret !== cronSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
@@ -287,6 +323,17 @@ export async function GET(req: NextRequest) {
           );
 
           guruResult.signals++;
+
+          // Send push notifications for new signal
+          try {
+            await sendPushNotifications(db, {
+              id: signalId,
+              tickers,
+              action: analysis.action,
+              guruHandle: guru.twitter_handle,
+              score: analysis.score,
+            });
+          } catch { /* don't fail pipeline on push error */ }
         } catch (err: any) {
           guruResult.errors.push(`Tweet ${tweet.id}: ${err.message}`);
         }

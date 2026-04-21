@@ -6,8 +6,6 @@ import { api } from '@/lib/api';
 
 type PushState = 'loading' | 'unsupported' | 'prompt' | 'subscribed' | 'denied';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3010';
-
 /** Convert a base64 URL string to a Uint8Array (for VAPID applicationServerKey) */
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -48,7 +46,7 @@ export function usePush() {
 
     try {
       // 1. Get VAPID public key from API
-      const res = await fetch(`${API_BASE}/api/v1/push/vapid-key`);
+      const res = await fetch(`/api/v1/push/vapid-key`);
       const json = await res.json();
       if (!json.data?.publicKey) throw new Error('No VAPID key');
 
