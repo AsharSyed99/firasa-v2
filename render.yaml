@@ -13,7 +13,7 @@ services:
       - key: DATABASE_URL
         value: file:/data/firasa.db
       - key: CORS_ORIGIN
-        sync: false  # Set to your Vercel URL after deploying frontend
+        value: https://firasa-opal.vercel.app
       - key: FIREBASE_PROJECT_ID
         sync: false
       - key: FIREBASE_CLIENT_EMAIL

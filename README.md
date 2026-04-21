@@ -2,6 +2,18 @@
 
 Twitter-powered trading intelligence platform. Turns financial gurus' tweets into actionable, scored trade signals.
 
+## Deploy
+
+### Frontend (Vercel) — Already Live
+🌐 **https://firasa-opal.vercel.app**
+
+### API (Render) — One-Click Deploy
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/AsharSyed99/firasa-v2)
+
+Click the button above, then fill in the secret env vars when prompted.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
+
 ## Architecture
 
 Turborepo monorepo:

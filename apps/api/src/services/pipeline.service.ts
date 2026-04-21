@@ -7,6 +7,7 @@ import { chatCompletion, analyzeImage } from '../providers/groq.js';
 import { getEnv } from '../config/env.js';
 import { enrichWithSmartMoney } from './smart-money.service.js';
 import { fanOutAlert } from './alert.service.js';
+import type { SignalAction } from '@firasa/shared';
 import { createLogger } from '../config/logger.js';
 
 const log = createLogger('pipeline');
@@ -158,7 +159,7 @@ export async function runPipelineForGuru(guruId: string): Promise<PipelineResult
         id: signal.id,
         guruId,
         tickers: JSON.stringify(tickers),
-        action: analysis.action,
+        action: analysis.action as SignalAction,
         score: analysis.score,
         reasoning: analysis.reasoning,
         tweetText: tweet.text,
