@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useAuth } from './use-auth';
 import { api } from '@/lib/api';
 
 type PushState = 'loading' | 'unsupported' | 'prompt' | 'subscribed' | 'denied';
@@ -17,7 +16,6 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function usePush() {
-  const { user } = useAuth();
   const [state, setState] = useState<PushState>('loading');
 
   useEffect(() => {
@@ -50,8 +48,6 @@ export function usePush() {
   }, []);
 
   const subscribe = useCallback(async () => {
-    if (!user) return;
-
     try {
       // 1. Get VAPID public key from API
       const res = await fetch(`/api/v1/push/vapid-key`);
@@ -81,7 +77,7 @@ export function usePush() {
         setState('denied');
       }
     }
-  }, [user]);
+  }, []);
 
   return { state, subscribe };
 }
