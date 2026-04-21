@@ -1,18 +1,19 @@
 services:
   - type: web
     name: firasa-api
-    env: docker
-    dockerfilePath: ./apps/api/Dockerfile
+    env: node
     region: oregon
     plan: free
     autoDeploy: true
+    buildCommand: npm install && cd packages/database && npx prisma generate && cd ../.. && npx turbo build --filter=@firasa/api && mkdir -p data
+    startCommand: cd packages/database && npx prisma db push --skip-generate && cd ../.. && node apps/api/dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "3010"
+        value: "10000"
       - key: DATABASE_URL
-        value: file:/app/data/firasa.db
+        value: file:./data/firasa.db
       - key: CORS_ORIGIN
         value: https://firasa-opal.vercel.app
       - key: FIREBASE_PROJECT_ID
