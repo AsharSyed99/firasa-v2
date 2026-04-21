@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "vercel-build": "turbo build --filter=@firasa/web",
     "test": "turbo test",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
