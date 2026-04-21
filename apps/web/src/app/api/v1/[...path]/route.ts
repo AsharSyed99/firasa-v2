@@ -226,6 +226,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       const db = await getDb();
       const id = 'wps_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       const userId = 'dev-user';
+      // Ensure dev user exists
+      await db.execute(
+        `INSERT OR IGNORE INTO users (id, firebase_uid, email, display_name, tier, created_at, updated_at)
+         VALUES ('${userId}', 'dev', 'dev@firasa.app', 'Dev User', 'free', datetime('now'), datetime('now'))`
+      );
       // Upsert: delete existing then insert
       await db.execute(`DELETE FROM web_push_subscriptions WHERE endpoint = '${endpoint.replace(/'/g, "''")}'`);
       await db.execute(
