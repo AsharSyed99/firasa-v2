@@ -169,6 +169,40 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ data: { publicKey: process.env.VAPID_PUBLIC_KEY || '' } });
     }
 
+    // GET /api/v1/push/test — send a test notification to all subscribers
+    if (route === 'push/test') {
+      const webpush = (await import('web-push')).default;
+      const vapidPublic = process.env.VAPID_PUBLIC_KEY;
+      const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+      const vapidSubject = process.env.VAPID_SUBJECT;
+      if (!vapidPublic || !vapidPrivate || !vapidSubject) {
+        return NextResponse.json({ error: 'VAPID keys not configured' }, { status: 500 });
+      }
+      webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
+      const subs = await db.execute('SELECT * FROM web_push_subscriptions');
+      const payload = JSON.stringify({
+        title: '🔔 Firasa Test',
+        body: 'Push notifications are working!',
+        data: { url: '/dashboard' },
+      });
+      let sent = 0, failed = 0;
+      for (const sub of subs.rows as any[]) {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            payload
+          );
+          sent++;
+        } catch (err: any) {
+          failed++;
+          if (err.statusCode === 404 || err.statusCode === 410) {
+            await db.execute(`DELETE FROM web_push_subscriptions WHERE id = '${sub.id}'`);
+          }
+        }
+      }
+      return NextResponse.json({ data: { sent, failed, total: subs.rows.length } });
+    }
+
     // GET /api/v1/push/subscriptions (debug)
     if (route === 'push/subscriptions') {
       const subs = await db.execute('SELECT id, user_id, endpoint, created_at FROM web_push_subscriptions');
