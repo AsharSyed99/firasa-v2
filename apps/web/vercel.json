@@ -1,6 +1,3 @@
 {
-  "buildCommand": "cd ../.. && npx turbo build --filter=@firasa/web",
-  "outputDirectory": ".next",
-  "installCommand": "cd ../.. && npm install",
   "framework": "nextjs"
 }

@@ -17,3 +17,4 @@ android/
 # Capacitor mobile build output
 out/
 apps/web/out/
+.vercel

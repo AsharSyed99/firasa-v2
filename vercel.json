@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npx turbo build --filter=@firasa/web",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "npm install",
+  "framework": "nextjs"
+}
