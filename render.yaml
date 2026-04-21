@@ -2,16 +2,17 @@ services:
   - type: web
     name: firasa-api
     env: docker
-    dockerfilePath: apps/api/Dockerfile
+    dockerfilePath: ./apps/api/Dockerfile
     region: oregon
     plan: free
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "3010"
       - key: DATABASE_URL
-        value: file:/data/firasa.db
+        value: file:/app/data/firasa.db
       - key: CORS_ORIGIN
         value: https://firasa-opal.vercel.app
       - key: FIREBASE_PROJECT_ID
@@ -32,7 +33,3 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         value: mailto:support@firasa.app
-    disk:
-      name: firasa-data
-      mountPath: /data
-      sizeGB: 1
