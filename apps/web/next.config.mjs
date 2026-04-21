@@ -2,9 +2,9 @@
 const isMobileBuild = process.env.CAPACITOR_BUILD === 'true';
 
 const nextConfig = {
-  output: isMobileBuild ? 'export' : 'standalone',
+  output: isMobileBuild ? 'export' : undefined,
   reactStrictMode: true,
-  transpilePackages: ['@firasa/shared'],
+  transpilePackages: ['@firasa/shared', '@firasa/database'],
 
   // Images must use unoptimized in static export
   ...(isMobileBuild ? { images: { unoptimized: true } } : {}),
