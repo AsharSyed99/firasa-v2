@@ -30,6 +30,14 @@ export function usePush() {
     navigator.serviceWorker.register('/sw.js').then(async (reg) => {
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
+        // Re-sync subscription to server (in case server lost it)
+        const subJson = sub.toJSON();
+        try {
+          await api.subscribePush({
+            endpoint: subJson.endpoint!,
+            keys: subJson.keys as { p256dh: string; auth: string },
+          });
+        } catch { /* best effort */ }
         setState('subscribed');
       } else if (Notification.permission === 'denied') {
         setState('denied');
