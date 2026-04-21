@@ -239,7 +239,7 @@ export async function GET(req: NextRequest) {
   const gurus = gurusResult.rows as any[];
 
   for (const guru of gurus) {
-    const guruResult: any = { handle: guru.twitter_handle, tweets: 0, signals: 0, errors: [] };
+    const guruResult: any = { handle: guru.twitter_handle, tweets: 0, signals: 0, errors: [], skipped: [] };
     try {
       // Resolve Twitter user ID if missing
       let twitterUserId = guru.twitter_user_id;
@@ -268,14 +268,14 @@ export async function GET(req: NextRequest) {
         try {
           // Skip if already processed
           const exists = await db.execute(`SELECT id FROM signals WHERE tweet_id = ${escSql(tweet.id)}`);
-          if (exists.rows.length > 0) continue;
+          if (exists.rows.length > 0) { guruResult.skipped.push({ id: tweet.id, reason: 'already_processed' }); continue; }
 
           // Skip retweets
-          if (tweet.referenced_tweets?.some(r => r.type === 'retweeted')) continue;
+          if (tweet.referenced_tweets?.some(r => r.type === 'retweeted')) { guruResult.skipped.push({ id: tweet.id, reason: 'retweet' }); continue; }
 
           // Extract tickers
           const tickers = extractTickers(tweet.text);
-          if (tickers.length === 0) continue;
+          if (tickers.length === 0) { guruResult.skipped.push({ id: tweet.id, reason: 'no_tickers', text: tweet.text.slice(0, 100) }); continue; }
 
           // Check for recent duplicate (same guru + ticker)
           const recentResult = await db.execute(
