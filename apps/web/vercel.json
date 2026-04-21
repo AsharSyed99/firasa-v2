@@ -1,3 +1,5 @@
 {
+  "buildCommand": "cd ../.. && npx turbo build --filter=@firasa/web",
+  "installCommand": "cd ../.. && npm install",
   "framework": "nextjs"
 }
