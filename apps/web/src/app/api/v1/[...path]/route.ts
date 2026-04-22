@@ -136,7 +136,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // GET /api/v1/signals/:id
-    if (route.startsWith('signals/')) {
+    if (route.startsWith('signals/') && !['signals/streak', 'signals/consensus'].includes(route)) {
       const id = route.slice('signals/'.length);
       if (id && !id.includes('/')) {
         const result = await db.execute(
