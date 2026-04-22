@@ -43,6 +43,10 @@ jobs:
         working-directory: apps/web
         run: npm run build
 
+      - name: Add iOS platform
+        working-directory: apps/web
+        run: npx cap add ios
+
       - name: Sync Capacitor iOS
         working-directory: apps/web
         run: npx cap sync ios
