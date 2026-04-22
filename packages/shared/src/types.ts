@@ -6,7 +6,7 @@ import type {
   AlertChannel,
   GuruCategory,
   Timeframe,
-} from './enums.js';
+} from './enums';
 
 // ─── API Response Wrapper ────────────────────────────────────
 

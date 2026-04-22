@@ -1,3 +1,3 @@
-export * from './enums.js';
-export * from './types.js';
-export * from './tier-limits.js';
+export * from './enums';
+export * from './types';
+export * from './tier-limits';

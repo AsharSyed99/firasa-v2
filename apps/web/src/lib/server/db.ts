@@ -63,6 +63,11 @@ const SCHEMA_SQL = [
 
   `CREATE TABLE IF NOT EXISTS "daily_summaries" ("id" TEXT NOT NULL PRIMARY KEY, "date" TEXT NOT NULL, "total_signals" INTEGER NOT NULL DEFAULT 0, "buy_signals" INTEGER NOT NULL DEFAULT 0, "sell_signals" INTEGER NOT NULL DEFAULT 0, "avg_score" REAL NOT NULL DEFAULT 0, "alerts_sent" INTEGER NOT NULL DEFAULT 0, "active_users" INTEGER NOT NULL DEFAULT 0, "new_users" INTEGER NOT NULL DEFAULT 0, "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "daily_summaries_date_key" ON "daily_summaries"("date")`,
+
+  `CREATE TABLE IF NOT EXISTS "user_guru_follows" ("id" TEXT NOT NULL PRIMARY KEY, "user_id" TEXT NOT NULL, "guru_id" TEXT NOT NULL, "created_at" TEXT DEFAULT (datetime('now')), FOREIGN KEY ("user_id") REFERENCES "users"("id"), FOREIGN KEY ("guru_id") REFERENCES "gurus"("id"))`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS "user_guru_follows_user_guru_key" ON "user_guru_follows"("user_id", "guru_id")`,
+
+  `CREATE TABLE IF NOT EXISTS "signal_outcomes" ("id" TEXT NOT NULL PRIMARY KEY, "signal_id" TEXT NOT NULL, "timeframe" TEXT NOT NULL, "price_at_signal" REAL, "price_at_check" REAL, "pct_change" REAL, "outcome" TEXT, "checked_at" TEXT DEFAULT (datetime('now')), FOREIGN KEY ("signal_id") REFERENCES "signals"("id"))`,
 ];
 
 const SEED_SQL = [
