@@ -206,7 +206,7 @@ function cuid(): string {
 
 // ─── Push Notifications ──────────────────────────────────────
 
-async function sendPushNotifications(db: any, signal: { id: string; tickers: string[]; action: string; guruHandle: string; score: number }) {
+async function sendPushNotifications(db: any, signal: { id: string; tickers: string[]; action: string; guruHandle: string; guruId: string; score: number }) {
   const vapidPublic = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
   const vapidSubject = process.env.VAPID_SUBJECT;
@@ -214,7 +214,12 @@ async function sendPushNotifications(db: any, signal: { id: string; tickers: str
 
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
 
-  const subs = await db.execute('SELECT * FROM web_push_subscriptions');
+  // Only notify users who follow this guru
+  const subs = await db.execute(
+    `SELECT wps.* FROM web_push_subscriptions wps
+     JOIN user_guru_follows ugf ON ugf.user_id = wps.user_id
+     WHERE ugf.guru_id = ${escSql(signal.guruId)}`
+  );
   if (subs.rows.length === 0) return;
 
   const payload = JSON.stringify({
@@ -254,13 +259,14 @@ export async function GET(req: NextRequest) {
   const db = await getDb();
   const results: any[] = [];
 
-  // Get active gurus, prioritized by follower count
+  // Only poll gurus that have at least 1 follower (is_active is set when followed)
   const gurusResult = await db.execute(
     `SELECT g.*, COUNT(ugf.user_id) as follower_count
      FROM gurus g
-     LEFT JOIN user_guru_follows ugf ON g.id = ugf.guru_id
+     JOIN user_guru_follows ugf ON g.id = ugf.guru_id
      WHERE g.is_active = 1
      GROUP BY g.id
+     HAVING follower_count > 0
      ORDER BY follower_count DESC`
   );
   const gurus = gurusResult.rows as any[];
@@ -358,6 +364,7 @@ export async function GET(req: NextRequest) {
               tickers,
               action: analysis.action,
               guruHandle: guru.twitter_handle,
+              guruId: guru.id,
               score: analysis.score,
             });
           } catch { /* don't fail pipeline on push error */ }

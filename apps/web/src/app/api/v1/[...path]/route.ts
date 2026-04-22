@@ -175,7 +175,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // GET /api/v1/gurus
     if (route === 'gurus') {
       const result = await db.execute(
-        `SELECT * FROM gurus WHERE is_active = 1 ORDER BY display_name ASC`
+        `SELECT g.*, COUNT(ugf.user_id) as follower_count FROM gurus g
+         LEFT JOIN user_guru_follows ugf ON g.id = ugf.guru_id
+         GROUP BY g.id ORDER BY follower_count DESC, display_name ASC`
       );
       const mapped = result.rows.map((g: any) => ({
         id: g.id,
@@ -695,13 +697,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       const guruId = genId('guru');
       await db.execute(
         `INSERT INTO gurus (id, twitter_handle, twitter_user_id, display_name, category, reliability, is_active, total_signals, profitable_signals, avg_score, created_at, updated_at)
-         VALUES ('${guruId}', '${tw.username.replace(/'/g, "''")}', '${tw.id}', '${tw.name.replace(/'/g, "''")}', '${category}', 0.5, 1, 0, 0, 0, datetime('now'), datetime('now'))`
+         VALUES ('${guruId}', '${tw.username.replace(/'/g, "''")}', '${tw.id}', '${tw.name.replace(/'/g, "''")}', '${category}', 0.5, 0, 0, 0, 0, datetime('now'), datetime('now'))`
       );
 
       return NextResponse.json({
         data: {
           id: guruId, twitterHandle: tw.username, displayName: tw.name,
-          category, reliability: 0.5, isActive: true,
+          category, reliability: 0.5, isActive: false,
           totalSignals: 0, profitableSignals: 0, avgScore: 0,
           alreadyExists: false,
         },
@@ -730,7 +732,27 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       await db.execute(
         `INSERT OR IGNORE INTO user_guru_follows (id, user_id, guru_id) VALUES ('${id}', '${user.id.replace(/'/g, "''")}', '${guruId.replace(/'/g, "''")}')`
       );
+      // Activate guru if this is the first follower
+      await db.execute(
+        `UPDATE gurus SET is_active = 1, updated_at = datetime('now') WHERE id = '${guruId.replace(/'/g, "''")}' AND is_active = 0`
+      );
       return NextResponse.json({ data: { id, guruId } });
+    }
+
+    // POST /api/v1/admin/sync-guru-status — deactivate gurus with no followers
+    if (route === 'admin/sync-guru-status') {
+      const user = await resolveUser();
+      if (!user || user.tier !== 'admin') return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const db = await getDb();
+      const result = await db.execute(
+        `UPDATE gurus SET is_active = 0, updated_at = datetime('now')
+         WHERE id NOT IN (SELECT DISTINCT guru_id FROM user_guru_follows)`
+      );
+      const activated = await db.execute(
+        `UPDATE gurus SET is_active = 1, updated_at = datetime('now')
+         WHERE id IN (SELECT DISTINCT guru_id FROM user_guru_follows)`
+      );
+      return NextResponse.json({ data: { deactivated: result.rowsAffected, activated: activated.rowsAffected } });
     }
 
     // POST /api/v1/me/onboarding-complete
@@ -862,6 +884,15 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       await db.execute(
         `DELETE FROM user_guru_follows WHERE user_id = '${user.id.replace(/'/g, "''")}' AND guru_id = '${guruId.replace(/'/g, "''")}'`
       );
+      // Deactivate guru if no followers remain
+      const remaining = await db.execute(
+        `SELECT COUNT(*) as cnt FROM user_guru_follows WHERE guru_id = '${guruId.replace(/'/g, "''")}'`
+      );
+      if (Number((remaining.rows[0] as any)?.cnt || 0) === 0) {
+        await db.execute(
+          `UPDATE gurus SET is_active = 0, updated_at = datetime('now') WHERE id = '${guruId.replace(/'/g, "''")}'`
+        );
+      }
       return NextResponse.json({ data: { unfollowed: guruId } });
     }
 
