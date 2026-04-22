@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@auth/core": "^0.41.2",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
+    "@capacitor/ios": "^6.2.1",
     "@firasa/database": "*",
     "@firasa/shared": "*",
     "@libsql/client": "^0.17.2",

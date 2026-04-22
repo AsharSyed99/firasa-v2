@@ -21,7 +21,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="theme-midnight">
-      <body className="bg-[var(--bg-base)] text-[var(--text-primary)] min-h-screen">
+      <head>
+        {/* iOS native app meta tags */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Firasa" />
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icon-192.png" />
+      </head>
+      <body className="bg-[var(--bg-base)] text-[var(--text-primary)] min-h-screen safe-area-inset">
         <Providers>
           <LayoutShell>{children}</LayoutShell>
           <FooterDisclaimer />
