@@ -5,25 +5,43 @@ import { useAuth } from '../../hooks/use-auth';
 import { api } from '../../lib/api';
 import type { GuruDto } from '@firasa/shared';
 
+const CATEGORIES = [
+  { id: 'crypto', label: '₿ Crypto', desc: 'Bitcoin, Ethereum, altcoins' },
+  { id: 'stocks', label: '📈 Stocks', desc: 'Equities, earnings, growth' },
+  { id: 'forex', label: '💱 Forex', desc: 'Currency pairs, FX markets' },
+  { id: 'commodities', label: '🪙 Commodities', desc: 'Gold, oil, agriculture' },
+];
+
+type Step = 'welcome' | 'interests' | 'gurus' | 'notifications' | 'done';
+const STEPS: Step[] = ['welcome', 'interests', 'gurus', 'notifications', 'done'];
+
 export default function OnboardingPage() {
-  type Step = 'welcome' | 'gurus' | 'alerts' | 'tier';
   const { user } = useAuth();
   const [step, setStep] = useState<Step>('welcome');
   const [displayName, setDisplayName] = useState('');
+  const [interests, setInterests] = useState<Set<string>>(new Set());
   const [gurus, setGurus] = useState<GuruDto[]>([]);
   const [selectedGurus, setSelectedGurus] = useState<Set<string>>(new Set());
-  const [pushEnabled, setPushEnabled] = useState(true);
-  const [quietStart, setQuietStart] = useState('22:00');
-  const [quietEnd, setQuietEnd] = useState('08:00');
+  const [pushEnabled, setPushEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
+      setDisplayName(user.displayName || '');
       api.getGurus().then((res) => {
         if (res.data) setGurus(res.data);
       });
     }
   }, [user]);
+
+  const toggleInterest = (id: string) => {
+    setInterests((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const toggleGuru = (id: string) => {
     setSelectedGurus((prev) => {
@@ -34,22 +52,40 @@ export default function OnboardingPage() {
     });
   };
 
+  const requestPushPermission = async () => {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    setPushEnabled(permission === 'granted');
+  };
+
   const completeOnboarding = async () => {
     setLoading(true);
     try {
-      await api.updatePreferences({
+      // Follow selected gurus
+      for (const guruId of selectedGurus) {
+        try {
+          await api.post('/api/v1/me/gurus/follow', { guruId });
+        } catch { /* ignore duplicate follows */ }
+      }
+      // Save preferences with interests
+      await api.patch('/api/v1/me/preferences', {
         pushEnabled,
-        quietHoursStart: quietStart,
-        quietHoursEnd: quietEnd,
+        interests: [...interests],
       });
+      // Mark onboarding complete
+      await api.post('/api/v1/me/onboarding-complete', {});
       window.location.href = '/dashboard';
     } finally {
       setLoading(false);
     }
   };
 
-  const STEPS: Step[] = ['welcome', 'gurus', 'alerts', 'tier'];
   const progress = ((STEPS.indexOf(step) + 1) / STEPS.length) * 100;
+
+  // Top gurus sorted by reliability for recommendation
+  const recommendedGurus = [...gurus]
+    .sort((a, b) => b.reliability - a.reliability)
+    .slice(0, 8);
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
@@ -58,12 +94,18 @@ export default function OnboardingPage() {
       </div>
 
       <div className="flex-1 max-w-2xl mx-auto w-full px-4 py-8">
+        {/* Step 1: Welcome */}
         {step === 'welcome' && (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold">Welcome to Firasa 🔥</h1>
             <p className="text-gray-400 text-lg">
               Get real-time trading signals from top Twitter gurus, powered by AI.
             </p>
+            {displayName && (
+              <p className="text-xl text-emerald-400">
+                Hey, {displayName}! Let&apos;s get you set up.
+              </p>
+            )}
             <div className="space-y-4">
               <label className="block text-sm text-gray-400">What should we call you?</label>
               <input
@@ -75,7 +117,7 @@ export default function OnboardingPage() {
               />
             </div>
             <button
-              onClick={() => setStep('gurus')}
+              onClick={() => setStep('interests')}
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-lg font-medium transition"
             >
               Get Started →
@@ -83,12 +125,48 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {/* Step 2: Select Interests */}
+        {step === 'interests' && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">What are you interested in?</h2>
+            <p className="text-gray-400">Pick the markets you follow. This helps us show relevant signals.</p>
+            <div className="grid grid-cols-2 gap-3">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => toggleInterest(cat.id)}
+                  className={`p-4 rounded-xl border-2 text-left transition ${
+                    interests.has(cat.id)
+                      ? 'border-emerald-500 bg-emerald-500/10'
+                      : 'border-gray-700 bg-gray-900 hover:border-gray-600'
+                  }`}
+                >
+                  <div className="font-medium text-lg">{cat.label}</div>
+                  <div className="text-sm text-gray-400 mt-1">{cat.desc}</div>
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setStep('welcome')} className="px-6 py-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
+                ← Back
+              </button>
+              <button
+                onClick={() => setStep('gurus')}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-medium transition"
+              >
+                Continue ({interests.size} selected)
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Follow Recommended Gurus */}
         {step === 'gurus' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Pick Your Gurus</h2>
-            <p className="text-gray-400">Follow trading experts to get their signals. You can change this later.</p>
+            <h2 className="text-2xl font-bold">Follow at least 3 Gurus</h2>
+            <p className="text-gray-400">These are our top-rated trading experts. You can change this later.</p>
             <div className="grid grid-cols-2 gap-3">
-              {gurus.map((guru) => (
+              {recommendedGurus.map((guru) => (
                 <button
                   key={guru.id}
                   onClick={() => toggleGuru(guru.id)}
@@ -101,18 +179,19 @@ export default function OnboardingPage() {
                   <div className="font-medium">{guru.displayName}</div>
                   <div className="text-sm text-gray-400">@{guru.twitterHandle}</div>
                   <div className="text-xs text-emerald-400 mt-1">
-                    {(guru.reliability * 100).toFixed(0)}% reliable
+                    {(guru.reliability * 100).toFixed(0)}% reliable · {guru.totalSignals} signals
                   </div>
                 </button>
               ))}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setStep('welcome')} className="px-6 py-3 bg-gray-800 rounded-lg">
-                Back
+              <button onClick={() => setStep('interests')} className="px-6 py-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
+                ← Back
               </button>
               <button
-                onClick={() => setStep('alerts')}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-medium transition"
+                onClick={() => setStep('notifications')}
+                disabled={selectedGurus.size < 3}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed py-3 rounded-lg font-medium transition"
               >
                 Continue ({selectedGurus.size} selected)
               </button>
@@ -120,89 +199,71 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 'alerts' && (
+        {/* Step 4: Enable Push Notifications */}
+        {step === 'notifications' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Alert Preferences</h2>
-            <p className="text-gray-400">Choose how and when you want to be notified.</p>
-            <div className="space-y-4">
-              <label className="flex items-center justify-between bg-gray-900 p-4 rounded-xl">
-                <span>Push Notifications</span>
-                <input
-                  type="checkbox"
-                  checked={pushEnabled}
-                  onChange={(e) => setPushEnabled(e.target.checked)}
-                  className="w-5 h-5 accent-emerald-500"
-                />
-              </label>
-              <div className="bg-gray-900 p-4 rounded-xl space-y-3">
-                <div className="font-medium">Quiet Hours</div>
-                <p className="text-sm text-gray-400">No alerts during these times</p>
-                <div className="flex gap-4">
-                  {[
-                    { label: 'From', value: quietStart, set: setQuietStart },
-                    { label: 'To', value: quietEnd, set: setQuietEnd },
-                  ].map((f) => (
-                    <div key={f.label}>
-                      <label className="text-xs text-gray-500">{f.label}</label>
-                      <input
-                        type="time"
-                        value={f.value}
-                        onChange={(e) => f.set(e.target.value)}
-                        className="block bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white"
-                      />
-                    </div>
-                  ))}
+            <h2 className="text-2xl font-bold">Stay in the Loop 🔔</h2>
+            <p className="text-gray-400">
+              Get instant push notifications when your gurus post new trading signals.
+            </p>
+            <div className="bg-gray-900 p-6 rounded-xl border border-gray-700 space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="text-4xl">📱</div>
+                <div>
+                  <div className="font-medium">Push Notifications</div>
+                  <div className="text-sm text-gray-400">
+                    {pushEnabled ? 'Enabled — you\'ll get real-time alerts!' : 'Enable to never miss a signal'}
+                  </div>
                 </div>
               </div>
+              {!pushEnabled ? (
+                <button
+                  onClick={requestPushPermission}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-medium transition"
+                >
+                  Enable Push Notifications
+                </button>
+              ) : (
+                <div className="text-center text-emerald-400 font-medium py-3">
+                  ✅ Notifications enabled!
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setStep('gurus')} className="px-6 py-3 bg-gray-800 rounded-lg">
-                Back
+              <button onClick={() => setStep('gurus')} className="px-6 py-3 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
+                ← Back
               </button>
               <button
-                onClick={() => setStep('tier')}
+                onClick={() => setStep('done')}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-medium transition"
               >
-                Continue
+                {pushEnabled ? 'Continue' : 'Skip for now'}
               </button>
             </div>
           </div>
         )}
 
-        {step === 'tier' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Choose Your Plan</h2>
-            <p className="text-gray-400">Start free, upgrade anytime.</p>
-            <div className="space-y-4">
-              {[
-                { name: 'Free', price: '$0', desc: '3 gurus · 5 alerts/day', highlight: false },
-                { name: 'Pro', price: '$9.99/mo', desc: '20 gurus · 50 alerts/day · Trade tracker', highlight: true },
-                { name: 'Premium', price: '$29.99/mo', desc: '100 gurus · 200 alerts/day · Portfolio', highlight: false },
-              ].map((plan) => (
-                <div key={plan.name} className={`p-5 rounded-xl border-2 ${
-                  plan.highlight ? 'border-emerald-500 bg-emerald-500/5' : 'border-gray-700 bg-gray-900'
-                }`}>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-bold text-lg">{plan.name}</div>
-                      <div className="text-sm text-gray-400">{plan.desc}</div>
-                    </div>
-                    <div className="text-xl font-bold text-emerald-400">{plan.price}</div>
-                  </div>
-                  {plan.highlight && (
-                    <div className="mt-2 text-xs text-emerald-500 font-medium">⭐ Most Popular</div>
-                  )}
-                </div>
-              ))}
+        {/* Step 5: Done */}
+        {step === 'done' && (
+          <div className="space-y-6 text-center py-12">
+            <div className="text-6xl">🎉</div>
+            <h2 className="text-3xl font-bold">You&apos;re all set!</h2>
+            <p className="text-gray-400 text-lg">
+              Your personalized signal feed is ready. Start exploring!
+            </p>
+            <div className="bg-gray-900 p-4 rounded-xl border border-gray-700 text-left space-y-2">
+              <div className="text-sm text-gray-400">Your setup:</div>
+              <div className="text-sm">📊 Interests: {interests.size > 0 ? [...interests].join(', ') : 'All'}</div>
+              <div className="text-sm">👥 Following: {selectedGurus.size} gurus</div>
+              <div className="text-sm">🔔 Notifications: {pushEnabled ? 'On' : 'Off'}</div>
             </div>
             <button
               onClick={completeOnboarding}
               disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 py-3 rounded-lg font-medium transition"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 py-4 rounded-lg font-bold text-lg transition"
             >
-              {loading ? 'Setting up...' : 'Start with Free →'}
+              {loading ? 'Setting up...' : 'Go to Dashboard →'}
             </button>
-            <p className="text-center text-xs text-gray-500">You can upgrade anytime from Settings</p>
           </div>
         )}
       </div>

@@ -230,17 +230,53 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     // GET /api/v1/notifications
     if (route === 'notifications') {
-      return NextResponse.json({ data: [], meta: {} });
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const unreadOnly = url.searchParams.get('unread') === 'true' || url.searchParams.get('unreadOnly') === 'true';
+      let sql = `SELECT * FROM notifications WHERE user_id = '${user.id.replace(/'/g, "''")}'`;
+      if (unreadOnly) sql += ` AND is_read = 0`;
+      sql += ` ORDER BY created_at DESC LIMIT 50`;
+      const result = await db.execute(sql);
+      const mapped = result.rows.map((n: any) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        data: n.data ? (() => { try { return JSON.parse(n.data); } catch { return n.data; } })() : null,
+        read: !!n.is_read,
+        createdAt: n.created_at,
+      }));
+      return NextResponse.json({ data: mapped });
     }
 
     // GET /api/v1/notifications/count
     if (route === 'notifications/count') {
-      return NextResponse.json({ data: { count: 0 } });
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const result = await db.execute(
+        `SELECT COUNT(*) as count FROM notifications WHERE user_id = '${user.id.replace(/'/g, "''")}' AND is_read = 0`
+      );
+      const count = Number((result.rows[0] as any)?.count || 0);
+      return NextResponse.json({ data: { count } });
     }
 
     // GET /api/v1/watchlist
     if (route === 'watchlist') {
-      return NextResponse.json({ data: [] });
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const result = await db.execute(
+        `SELECT w.*, s.action, s.sentiment, s.confidence, s.score
+         FROM watchlist_items w
+         LEFT JOIN signals s ON w.signal_id = s.id
+         WHERE w.user_id = '${user.id.replace(/'/g, "''")}'
+         ORDER BY w.added_at DESC`
+      );
+      const mapped = result.rows.map((w: any) => ({
+        id: w.id,
+        ticker: w.ticker,
+        signalId: w.signal_id || null,
+        note: w.notes || null,
+        addedAt: w.added_at,
+        signal: w.action ? { action: w.action, sentiment: w.sentiment, confidence: w.confidence, score: w.score } : null,
+      }));
+      return NextResponse.json({ data: mapped });
     }
 
     // GET /api/v1/mood
@@ -598,6 +634,65 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ data: { id, guruId } });
     }
 
+    // POST /api/v1/me/onboarding-complete
+    if (route === 'me/onboarding-complete') {
+      const user = await resolveUser();
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const db = await getDb();
+      await db.execute(
+        `UPDATE users SET onboarding_done = 1, updated_at = datetime('now') WHERE id = '${user.id.replace(/'/g, "''")}'`
+      );
+      return NextResponse.json({ success: true });
+    }
+
+    // POST /api/v1/notifications/read
+    if (route === 'notifications/read') {
+      const user = await resolveUser();
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const db = await getDb();
+      if (body.all === true) {
+        await db.execute(
+          `UPDATE notifications SET is_read = 1 WHERE user_id = '${user.id.replace(/'/g, "''")}'`
+        );
+      } else if (body.notificationId) {
+        await db.execute(
+          `UPDATE notifications SET is_read = 1 WHERE id = '${String(body.notificationId).replace(/'/g, "''")}' AND user_id = '${user.id.replace(/'/g, "''")}'`
+        );
+      } else {
+        return NextResponse.json({ error: 'Provide notificationId or all:true' }, { status: 400 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    // POST /api/v1/watchlist
+    if (route === 'watchlist') {
+      const user = await resolveUser();
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const { ticker, signalId, note } = body;
+      if (!ticker) return NextResponse.json({ error: 'ticker is required' }, { status: 400 });
+      const db = await getDb();
+      const limits = getTierLimits(user.tier);
+      // Check current watchlist count
+      const countResult = await db.execute(
+        `SELECT COUNT(*) as cnt FROM watchlist_items WHERE user_id = '${user.id.replace(/'/g, "''")}'`
+      );
+      const currentCount = Number((countResult.rows[0] as any)?.cnt || 0);
+      if (currentCount >= limits.maxWatchlistItems) {
+        return NextResponse.json({
+          error: `Watchlist limit reached. Your ${user.tier} tier allows ${limits.maxWatchlistItems} items. Upgrade to add more.`,
+        }, { status: 403 });
+      }
+      const id = genId('wl');
+      const tickerSafe = String(ticker).toUpperCase().replace(/'/g, "''");
+      const signalIdSafe = signalId ? `'${String(signalId).replace(/'/g, "''")}'` : 'NULL';
+      const noteSafe = note ? `'${String(note).replace(/'/g, "''")}'` : 'NULL';
+      await db.execute(
+        `INSERT OR IGNORE INTO watchlist_items (id, user_id, ticker, signal_id, notes, added_at)
+         VALUES ('${id}', '${user.id.replace(/'/g, "''")}', '${tickerSafe}', ${signalIdSafe}, ${noteSafe}, datetime('now'))`
+      );
+      return NextResponse.json({ data: { id, ticker: tickerSafe } });
+    }
+
     return NextResponse.json({ error: `Unknown POST route: ${route}` }, { status: 404 });
   } catch (err: any) {
     console.error('API error:', err);
@@ -612,6 +707,27 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
 
     if (route === 'me/preferences') {
+      const user = await resolveUser();
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const db = await getDb();
+      const fields: string[] = [];
+      if (body.pushEnabled !== undefined) fields.push(`push_enabled = ${body.pushEnabled ? 1 : 0}`);
+      if (body.emailEnabled !== undefined) fields.push(`email_enabled = ${body.emailEnabled ? 1 : 0}`);
+      if (body.alertThreshold !== undefined) fields.push(`alert_threshold = ${Number(body.alertThreshold)}`);
+      if (body.maxAlertsPerDay !== undefined) fields.push(`max_alerts_per_day = ${Number(body.maxAlertsPerDay)}`);
+      if (body.quietHoursStart !== undefined) fields.push(`quiet_hours_start = '${String(body.quietHoursStart).replace(/'/g, "''")}'`);
+      if (body.quietHoursEnd !== undefined) fields.push(`quiet_hours_end = '${String(body.quietHoursEnd).replace(/'/g, "''")}'`);
+      if (body.timezone !== undefined) fields.push(`timezone = '${String(body.timezone).replace(/'/g, "''")}'`);
+      fields.push(`updated_at = datetime('now')`);
+      if (fields.length > 1) {
+        // Ensure preferences row exists
+        await db.execute(
+          `INSERT OR IGNORE INTO user_preferences (id, user_id, created_at, updated_at) VALUES ('${genId('pref')}', '${user.id.replace(/'/g, "''")}', datetime('now'), datetime('now'))`
+        );
+        await db.execute(
+          `UPDATE user_preferences SET ${fields.join(', ')} WHERE user_id = '${user.id.replace(/'/g, "''")}'`
+        );
+      }
       return NextResponse.json({ data: body });
     }
 
@@ -648,6 +764,20 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
         `DELETE FROM user_guru_follows WHERE user_id = '${user.id.replace(/'/g, "''")}' AND guru_id = '${guruId.replace(/'/g, "''")}'`
       );
       return NextResponse.json({ data: { unfollowed: guruId } });
+    }
+
+    // DELETE /api/v1/watchlist/:id
+    if (route.startsWith('watchlist/')) {
+      const user = await resolveUser();
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const itemId = route.slice('watchlist/'.length);
+      if (itemId && !itemId.includes('/')) {
+        const db = await getDb();
+        await db.execute(
+          `DELETE FROM watchlist_items WHERE id = '${itemId.replace(/'/g, "''")}' AND user_id = '${user.id.replace(/'/g, "''")}'`
+        );
+        return NextResponse.json({ success: true });
+      }
     }
 
     return NextResponse.json({ error: `Unknown DELETE route: ${route}` }, { status: 404 });

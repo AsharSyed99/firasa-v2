@@ -39,7 +39,7 @@ const SCHEMA_SQL = [
 
   `CREATE TABLE IF NOT EXISTS "alert_logs" ("id" TEXT NOT NULL PRIMARY KEY, "user_id" TEXT NOT NULL, "signal_id" TEXT NOT NULL, "channel" TEXT NOT NULL, "status" TEXT NOT NULL DEFAULT 'sent', "error_msg" TEXT, "sent_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 
-  `CREATE TABLE IF NOT EXISTS "watchlist_items" ("id" TEXT NOT NULL PRIMARY KEY, "user_id" TEXT NOT NULL, "ticker" TEXT NOT NULL, "added_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "notes" TEXT, CONSTRAINT "watchlist_items_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE)`,
+  `CREATE TABLE IF NOT EXISTS "watchlist_items" ("id" TEXT NOT NULL PRIMARY KEY, "user_id" TEXT NOT NULL, "ticker" TEXT NOT NULL, "signal_id" TEXT, "added_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "notes" TEXT, CONSTRAINT "watchlist_items_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "watchlist_items_user_id_ticker_key" ON "watchlist_items"("user_id", "ticker")`,
 
   `CREATE TABLE IF NOT EXISTS "user_guru_configs" ("id" TEXT NOT NULL PRIMARY KEY, "user_id" TEXT NOT NULL, "guru_id" TEXT NOT NULL, "is_following" BOOLEAN NOT NULL DEFAULT true, "is_muted" BOOLEAN NOT NULL DEFAULT false, "custom_weight" REAL, "notes" TEXT, "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updated_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "user_guru_configs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE, CONSTRAINT "user_guru_configs_guru_id_fkey" FOREIGN KEY ("guru_id") REFERENCES "gurus" ("id") ON DELETE CASCADE ON UPDATE CASCADE)`,

@@ -254,8 +254,15 @@ export async function GET(req: NextRequest) {
   const db = await getDb();
   const results: any[] = [];
 
-  // Get all active gurus
-  const gurusResult = await db.execute('SELECT * FROM gurus WHERE is_active = 1');
+  // Get active gurus, prioritized by follower count
+  const gurusResult = await db.execute(
+    `SELECT g.*, COUNT(ugf.user_id) as follower_count
+     FROM gurus g
+     LEFT JOIN user_guru_follows ugf ON g.id = ugf.guru_id
+     WHERE g.is_active = 1
+     GROUP BY g.id
+     ORDER BY follower_count DESC`
+  );
   const gurus = gurusResult.rows as any[];
 
   for (const guru of gurus) {
@@ -367,9 +374,19 @@ export async function GET(req: NextRequest) {
     results.push(guruResult);
   }
 
+  const totalTweets = results.reduce((s, r) => s + r.tweets, 0);
+  const totalSignals = results.reduce((s, r) => s + r.signals, 0);
+  const totalErrors = results.reduce((s, r) => s + r.errors.length, 0);
+
   return NextResponse.json({
     success: true,
     polledAt: new Date().toISOString(),
+    summary: {
+      gurusPolled: results.length,
+      tweetsFound: totalTweets,
+      signalsCreated: totalSignals,
+      errors: totalErrors,
+    },
     gurus: results,
   });
 }
