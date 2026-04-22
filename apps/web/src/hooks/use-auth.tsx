@@ -5,7 +5,7 @@ import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from
 import { api } from '@/lib/api';
 import type { UserDto } from '@firasa/shared';
 
-const isDevBypass = process.env.NEXT_PUBLIC_AUTH_DEV_BYPASS === 'true';
+const isDevBypass = (process.env.NEXT_PUBLIC_AUTH_DEV_BYPASS || '').startsWith('true');
 
 interface AuthState {
   user: UserDto | null;

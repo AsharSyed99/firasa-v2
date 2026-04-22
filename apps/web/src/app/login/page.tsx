@@ -33,7 +33,7 @@ export default function LoginPage() {
         </button>
 
         {/* Dev bypass */}
-        {process.env.NEXT_PUBLIC_AUTH_DEV_BYPASS === 'true' && (
+        {(process.env.NEXT_PUBLIC_AUTH_DEV_BYPASS || '').startsWith('true') && (
           <button
             onClick={() => {
               document.cookie = 'firasa-dev-auth=true; path=/; max-age=86400';
