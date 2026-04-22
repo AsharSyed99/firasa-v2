@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import type { GuruDto } from '@firasa/shared';
-import { Search, UserPlus, UserMinus } from 'lucide-react';
+import { Search, UserPlus, UserMinus, Plus, Loader2 } from 'lucide-react';
 import { UpgradeCTA } from '@/components/upgrade-cta';
 
 type Tab = 'discover' | 'following';
@@ -28,14 +28,17 @@ export default function GurusPage() {
   const [tab, setTab] = useState<Tab>('discover');
   const [searchQuery, setSearchQuery] = useState('');
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [addHandle, setAddHandle] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState<string | null>(null);
 
   const tier = (user?.tier as string) || 'free';
   const limit = TIER_GURU_LIMITS[tier] ?? 3;
 
-  useEffect(() => {
+  const fetchGurus = () => {
     if (!user) return;
     setLoading(true);
-
     Promise.all([
       api.getGurus(),
       api.get<{ data: FollowedGuru[] }>('/api/v1/me/gurus').catch(() => ({ data: [] })),
@@ -44,7 +47,34 @@ export default function GurusPage() {
       setFollowedIds(new Set(followedRes.data.map((f) => f.guruId)));
     }).catch(console.error)
       .finally(() => setLoading(false));
-  }, [user]);
+  };
+
+  useEffect(() => { fetchGurus(); }, [user]);
+
+  const handleAddGuru = async () => {
+    if (!addHandle.trim()) return;
+    setAdding(true);
+    setAddError(null);
+    setAddSuccess(null);
+    try {
+      const res = await api.post<{ data: { id: string; displayName: string; twitterHandle: string; alreadyExists: boolean } }>(
+        '/api/v1/gurus/add',
+        { handle: addHandle.trim() }
+      );
+      const guru = res.data;
+      if (guru.alreadyExists) {
+        setAddSuccess(`@${guru.twitterHandle} is already tracked! You can follow them below.`);
+      } else {
+        setAddSuccess(`Added @${guru.twitterHandle} (${guru.displayName})! Their tweets will be analyzed on the next poll.`);
+      }
+      setAddHandle('');
+      fetchGurus();
+    } catch (err: any) {
+      setAddError(err.message || 'Failed to add guru');
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const handleFollow = async (guruId: string) => {
     setTogglingId(guruId);
@@ -109,6 +139,43 @@ export default function GurusPage() {
       <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
         Following {followedIds.size}/{limit} gurus
       </p>
+
+      {/* Add Guru by Handle */}
+      <div className="rounded-xl p-4 mb-5" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+        <div className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+          ➕ Add a Guru by Twitter Handle
+        </div>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--text-faint)' }}>@</span>
+            <input
+              type="text"
+              placeholder="e.g. elonmusk, CathieDWood, chaaborsi"
+              value={addHandle}
+              onChange={(e) => { setAddHandle(e.target.value); setAddError(null); setAddSuccess(null); }}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddGuru()}
+              className="w-full pl-8 pr-4 py-2.5 rounded-xl text-sm outline-none"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              disabled={adding}
+            />
+          </div>
+          <button
+            onClick={handleAddGuru}
+            disabled={adding || !addHandle.trim()}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+            style={{ background: 'var(--accent)', color: 'var(--bg-base)' }}
+          >
+            {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+            Add
+          </button>
+        </div>
+        {addError && (
+          <p className="text-xs mt-2" style={{ color: '#ef4444' }}>❌ {addError}</p>
+        )}
+        {addSuccess && (
+          <p className="text-xs mt-2" style={{ color: '#22c55e' }}>✅ {addSuccess}</p>
+        )}
+      </div>
 
       {/* Search bar */}
       <div className="relative mb-4">
@@ -258,7 +325,7 @@ export default function GurusPage() {
       {filteredGurus.length === 0 && (
         <div className="text-center py-12">
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {tab === 'following' ? 'You aren\'t following any gurus yet' : 'No gurus found'}
+            {tab === 'following' ? 'You aren\'t following any gurus yet' : 'No gurus found. Add one above!'}
           </p>
         </div>
       )}

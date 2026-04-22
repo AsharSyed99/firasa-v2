@@ -609,6 +609,89 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ data: { url: session.url } });
     }
 
+    // POST /api/v1/gurus/add — Add a new guru by Twitter handle
+    if (route === 'gurus/add') {
+      const user = await resolveUser();
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const db = await getDb();
+      let { handle } = body;
+      if (!handle || typeof handle !== 'string') {
+        return NextResponse.json({ error: 'handle is required' }, { status: 400 });
+      }
+      handle = handle.replace(/^@/, '').trim().toLowerCase();
+      if (!handle || handle.length > 50 || !/^[a-z0-9_]+$/i.test(handle)) {
+        return NextResponse.json({ error: 'Invalid Twitter handle' }, { status: 400 });
+      }
+
+      // Check if guru already exists
+      const existing = await db.execute(
+        `SELECT * FROM gurus WHERE LOWER(twitter_handle) = '${handle.replace(/'/g, "''")}'`
+      );
+      if (existing.rows.length > 0) {
+        const g = existing.rows[0] as any;
+        return NextResponse.json({
+          data: {
+            id: g.id, twitterHandle: g.twitter_handle, displayName: g.display_name,
+            category: g.category, reliability: g.reliability, isActive: !!g.is_active,
+            totalSignals: g.total_signals, profitableSignals: g.profitable_signals, avgScore: g.avg_score,
+            alreadyExists: true,
+          },
+        });
+      }
+
+      // Look up on Twitter API
+      const token = process.env.X_API_BEARER_TOKEN;
+      if (!token) {
+        return NextResponse.json({ error: 'Twitter API not configured' }, { status: 503 });
+      }
+      const twitterRes = await fetch(
+        `https://api.twitter.com/2/users/by/username/${encodeURIComponent(handle)}?user.fields=name,profile_image_url,description`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!twitterRes.ok) {
+        const errBody = await twitterRes.text();
+        if (twitterRes.status === 404 || errBody.includes('Could not find user')) {
+          return NextResponse.json({ error: `Twitter user @${handle} not found` }, { status: 404 });
+        }
+        if (twitterRes.status === 429) {
+          return NextResponse.json({ error: 'Twitter API rate limit reached. Try again in a few minutes.' }, { status: 429 });
+        }
+        return NextResponse.json({ error: 'Failed to look up Twitter user' }, { status: 502 });
+      }
+      const twitterData = (await twitterRes.json()) as {
+        data?: { id: string; name: string; username: string; description?: string };
+      };
+      if (!twitterData.data) {
+        return NextResponse.json({ error: `Twitter user @${handle} not found` }, { status: 404 });
+      }
+
+      const tw = twitterData.data;
+      // Infer category from bio
+      const bio = (tw.description || '').toLowerCase();
+      let category = 'general';
+      if (bio.match(/options|calls|puts/)) category = 'options';
+      else if (bio.match(/crypto|bitcoin|btc|eth|defi/)) category = 'crypto';
+      else if (bio.match(/swing|momentum/)) category = 'momentum';
+      else if (bio.match(/day\s*trad/)) category = 'daytrading';
+      else if (bio.match(/macro|economy|fed/)) category = 'macro';
+      else if (bio.match(/tech|growth/)) category = 'growth';
+
+      const guruId = genId('guru');
+      await db.execute(
+        `INSERT INTO gurus (id, twitter_handle, twitter_user_id, display_name, category, reliability, is_active, total_signals, profitable_signals, avg_score, created_at, updated_at)
+         VALUES ('${guruId}', '${tw.username.replace(/'/g, "''")}', '${tw.id}', '${tw.name.replace(/'/g, "''")}', '${category}', 0.5, 1, 0, 0, 0, datetime('now'), datetime('now'))`
+      );
+
+      return NextResponse.json({
+        data: {
+          id: guruId, twitterHandle: tw.username, displayName: tw.name,
+          category, reliability: 0.5, isActive: true,
+          totalSignals: 0, profitableSignals: 0, avgScore: 0,
+          alreadyExists: false,
+        },
+      });
+    }
+
     // POST /api/v1/me/gurus/follow
     if (route === 'me/gurus/follow') {
       const user = await resolveUser();

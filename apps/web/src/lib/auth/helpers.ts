@@ -15,7 +15,7 @@ export interface AuthUser {
 
 export async function getAuthUser(): Promise<AuthUser | null> {
   // Check for dev bypass
-  if (process.env.AUTH_DEV_BYPASS === 'true') {
+  if ((process.env.AUTH_DEV_BYPASS || '').startsWith('true')) {
     const cookieStore = await cookies();
     if (cookieStore.get('firasa-dev-auth')?.value === 'true') {
       return { id: 'dev-001', tier: 'admin', displayName: 'Dev User', onboardingDone: true };
