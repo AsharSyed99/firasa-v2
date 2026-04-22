@@ -110,10 +110,26 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       const action = url.searchParams.get('action');
       const limit = parseInt(url.searchParams.get('limit') || '50', 10);
       const cursor = url.searchParams.get('cursor');
+      const allGurus = url.searchParams.get('all') === 'true'; // bypass follow filter
 
       let sql = `SELECT s.*, g.twitter_handle, g.display_name, g.category
                  FROM signals s JOIN gurus g ON s.guru_id = g.id`;
       const conditions: string[] = [];
+
+      // Filter by followed gurus unless ?all=true or ?guruId= is specified
+      if (!allGurus && !guruId && user) {
+        const followedResult = await db.execute(
+          `SELECT guru_id FROM user_guru_follows WHERE user_id = '${user.id.replace(/'/g, "''")}'`
+        );
+        const followedIds = followedResult.rows.map((r: any) => `'${r.guru_id}'`);
+        if (followedIds.length > 0) {
+          conditions.push(`s.guru_id IN (${followedIds.join(',')})`);
+        } else {
+          // No follows — return empty
+          return NextResponse.json({ data: [], meta: { cursor: undefined, delayed: false, noFollows: true } });
+        }
+      }
+
       if (guruId) conditions.push(`s.guru_id = '${guruId.replace(/'/g, "''")}'`);
       if (action && action !== 'ALL') conditions.push(`s.action = '${action.replace(/'/g, "''")}'`);
       if (cursor) conditions.push(`s.created_at < (SELECT created_at FROM signals WHERE id = '${cursor.replace(/'/g, "''")}')`);
