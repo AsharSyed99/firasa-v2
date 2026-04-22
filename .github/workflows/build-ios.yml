@@ -90,19 +90,31 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # Patch the Xcode project for manual signing
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' App.xcodeproj/project.pbxproj
+          # Patch Xcode project for manual signing (App target only)
+          PROJ="App.xcodeproj/project.pbxproj"
 
-          # Insert signing settings after each PRODUCT_BUNDLE_IDENTIFIER line for app.firasa.mobile
-          sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = app\.firasa\.mobile;/a\
-          \t\t\t\tDEVELOPMENT_TEAM = "'"$APPLE_TEAM_ID"'";\
-          \t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "'"$PROFILE_NAME"'";\
-          \t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";
-          ' App.xcodeproj/project.pbxproj
+          # Switch from Automatic to Manual signing
+          sed -i '' 's/ProvisioningStyle = Automatic;/ProvisioningStyle = Manual;/g' "$PROJ"
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' "$PROJ"
+          sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Developer";/CODE_SIGN_IDENTITY = "Apple Distribution";/g' "$PROJ"
 
-          # Debug output
-          echo "=== Signing settings ==="
-          grep -A3 "PRODUCT_BUNDLE_IDENTIFIER = app.firasa.mobile" App.xcodeproj/project.pbxproj | head -12
+          # Insert DEVELOPMENT_TEAM and PROVISIONING_PROFILE_SPECIFIER after each PRODUCT_BUNDLE_IDENTIFIER line
+          python3 -c "
+          import re
+          with open('$PROJ', 'r') as f:
+              content = f.read()
+          # Add signing settings after PRODUCT_BUNDLE_IDENTIFIER for app.firasa.mobile
+          content = content.replace(
+              'PRODUCT_BUNDLE_IDENTIFIER = app.firasa.mobile;',
+              'PRODUCT_BUNDLE_IDENTIFIER = app.firasa.mobile;\n\t\t\t\tDEVELOPMENT_TEAM = $APPLE_TEAM_ID;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";'
+          )
+          with open('$PROJ', 'w') as f:
+              f.write(content)
+          "
+
+          # Verify
+          echo "=== Signing config ==="
+          grep -n "DEVELOPMENT_TEAM\|PROVISIONING_PROFILE\|CODE_SIGN" "$PROJ" | head -15
 
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
