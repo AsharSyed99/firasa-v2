@@ -16,10 +16,6 @@ const TIER_GURU_LIMITS: Record<string, number> = {
   admin: 999,
 };
 
-interface FollowedGuru {
-  guruId: string;
-}
-
 export default function GurusPage() {
   const { user, loading: authLoading } = useAuth();
   const [gurus, setGurus] = useState<GuruDto[]>([]);
@@ -41,10 +37,11 @@ export default function GurusPage() {
     setLoading(true);
     Promise.all([
       api.getGurus(),
-      api.get<{ data: FollowedGuru[] }>('/api/v1/me/gurus').catch(() => ({ data: [] })),
+      api.get<{ data: any[] }>('/api/v1/me/gurus').catch(() => ({ data: [] })),
     ]).then(([gurusRes, followedRes]) => {
       setGurus(gurusRes.data);
-      setFollowedIds(new Set(followedRes.data.map((f) => f.guruId)));
+      // API returns full guru objects — use .id (not .guruId)
+      setFollowedIds(new Set(followedRes.data.map((f) => f.id).filter(Boolean)));
     }).catch(console.error)
       .finally(() => setLoading(false));
   };
