@@ -18,5 +18,5 @@ android/
 out/
 apps/web/out/
 .vercel
-auth
-auth-wal
+/auth
+/auth-wal

@@ -4,19 +4,15 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/server/db';
+import { getAuthUser, getFullUser } from '@/lib/auth/helpers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function getUser() {
-  return {
-    id: 'dev-001',
-    firebaseUid: 'dev-user-001',
-    email: 'dev@firasa.app',
-    displayName: 'Dev User',
-    tier: 'admin',
-    onboardingDone: true,
-  };
+async function resolveUser() {
+  const authUser = await getAuthUser();
+  if (!authUser) return null;
+  return authUser;
 }
 
 function parseTickers(v: unknown): string[] {
@@ -67,22 +63,26 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { path } = await params;
     const route = path.join('/');
     const db = await getDb();
-    const user = getUser();
+    const user = await resolveUser();
     const url = new URL(req.url);
 
     // GET /api/v1/me
     if (route === 'me') {
-      const result = await db.execute(
-        `SELECT u.*, up.alert_threshold, up.max_alerts_per_day, up.timezone, up.push_enabled, up.email_enabled
-         FROM users u LEFT JOIN user_preferences up ON up.user_id = u.id
-         WHERE u.firebase_uid = '${user.firebaseUid}'`
-      );
-      const u = result.rows[0];
-      return NextResponse.json({ data: u || user });
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const u = await getFullUser(user.id);
+      return NextResponse.json({
+        data: u || {
+          id: user.id,
+          display_name: user.displayName,
+          tier: user.tier,
+          onboarding_done: user.onboardingDone,
+        },
+      });
     }
 
     // GET /api/v1/me/preferences
     if (route === 'me/preferences') {
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       const result = await db.execute(
         `SELECT * FROM user_preferences WHERE user_id = '${user.id}'`
       );
@@ -264,8 +264,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Missing endpoint or keys' }, { status: 400 });
       }
       const db = await getDb();
+      const user = await resolveUser();
+      const userId = user?.id || 'anonymous';
       const id = 'wps_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      const userId = 'dev-001';
+      // Ensure user exists for FK
+      if (userId === 'anonymous') {
+        await db.execute(
+          `INSERT OR IGNORE INTO users (id, email, display_name, tier, created_at, updated_at)
+           VALUES ('anonymous', '', 'Anonymous', 'free', datetime('now'), datetime('now'))`
+        );
+      }
       // Upsert: delete existing then insert
       await db.execute(`DELETE FROM web_push_subscriptions WHERE endpoint = '${endpoint.replace(/'/g, "''")}'`);
       await db.execute(

@@ -26,7 +26,7 @@ export interface ApiResponse<T> {
 
 export interface UserDto {
   id: string;
-  email: string;
+  email: string | null;
   displayName: string | null;
   photoUrl: string | null;
   tier: UserTier;

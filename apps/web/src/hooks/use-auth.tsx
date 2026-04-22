@@ -1,29 +1,13 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { useSession, signIn as nextAuthSignIn, signOut as nextAuthSignOut } from 'next-auth/react';
 import { api } from '@/lib/api';
 import type { UserDto } from '@firasa/shared';
 
-const firebaseApiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-const isDevMode = !firebaseApiKey || firebaseApiKey === 'placeholder';
-
-// Lazy-load Firebase only when real credentials exist
-let firebaseReady: Promise<typeof import('firebase/auth')> | null = null;
-if (!isDevMode) {
-  firebaseReady = import('firebase/app').then(({ initializeApp, getApps }) => {
-    if (getApps().length === 0) {
-      initializeApp({
-        apiKey: firebaseApiKey,
-        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      });
-    }
-    return import('firebase/auth');
-  });
-}
+const isDevBypass = process.env.NEXT_PUBLIC_AUTH_DEV_BYPASS === 'true';
 
 interface AuthState {
-  firebaseUser: unknown;
   user: UserDto | null;
   loading: boolean;
   signIn: () => Promise<void>;
@@ -32,7 +16,6 @@ interface AuthState {
 }
 
 const AuthContext = createContext<AuthState>({
-  firebaseUser: null,
   user: null,
   loading: true,
   signIn: async () => {},
@@ -41,68 +24,53 @@ const AuthContext = createContext<AuthState>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [firebaseUser, setFirebaseUser] = useState<unknown>(null);
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<UserDto | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Dev mode: auto-login with a dev token
   useEffect(() => {
-    if (!isDevMode) return;
-    api.setToken('dev-token');
-    api.getMe()
-      .then((res) => setUser(res.data))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
-  }, []);
+    if (status === 'loading') return;
 
-  // Production mode: real Firebase auth
-  useEffect(() => {
-    if (isDevMode || !firebaseReady) return;
-
-    let unsubscribe: (() => void) | undefined;
-    firebaseReady.then(({ getAuth, onAuthStateChanged }) => {
-      const auth = getAuth();
-      unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-        setFirebaseUser(fbUser);
-        if (fbUser) {
-          const token = await fbUser.getIdToken();
-          api.setToken(token);
-          try {
-            const res = await api.getMe();
-            setUser(res.data);
-          } catch {
-            setUser(null);
-          }
-        } else {
-          api.setToken(null);
-          setUser(null);
-        }
-        setLoading(false);
-      });
-    });
-
-    return () => unsubscribe?.();
-  }, []);
-
-  const signIn = useCallback(async () => {
-    if (isDevMode) return;
-    if (!firebaseReady) return;
-    const { getAuth, signInWithPopup, GoogleAuthProvider } = await firebaseReady;
-    const auth = getAuth();
-    await signInWithPopup(auth, new GoogleAuthProvider());
-  }, []);
-
-  const signOut = useCallback(async () => {
-    if (!isDevMode && firebaseReady) {
-      const { getAuth, signOut: fbSignOut } = await firebaseReady;
-      await fbSignOut(getAuth());
+    if (session?.user) {
+      // Real auth session — fetch full user profile
+      api.getMe()
+        .then((res) => setUser(res.data))
+        .catch(() => {
+          // Build a user from session data
+          setUser({
+            id: (session as any).userId || 'unknown',
+            email: session.user?.email || '',
+            displayName: session.user?.name || null,
+            photoUrl: session.user?.image || null,
+            tier: (session as any).tier || 'free',
+            onboardingDone: (session as any).onboardingDone || false,
+            createdAt: new Date().toISOString(),
+          });
+        })
+        .finally(() => setLoading(false));
+    } else if (isDevBypass) {
+      // Dev bypass
+      api.getMe()
+        .then((res) => setUser(res.data))
+        .catch(() => setUser(null))
+        .finally(() => setLoading(false));
+    } else {
+      setUser(null);
+      setLoading(false);
     }
-    api.setToken(null);
+  }, [session, status]);
+
+  const handleSignIn = useCallback(async () => {
+    await nextAuthSignIn('twitter', { callbackUrl: '/dashboard' });
+  }, []);
+
+  const handleSignOut = useCallback(async () => {
     setUser(null);
+    await nextAuthSignOut({ callbackUrl: '/login' });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, user, loading, signIn, signOut, isDevMode }}>
+    <AuthContext.Provider value={{ user, loading, signIn: handleSignIn, signOut: handleSignOut, isDevMode: isDevBypass }}>
       {children}
     </AuthContext.Provider>
   );
