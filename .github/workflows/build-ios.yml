@@ -90,15 +90,25 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # Patch the Xcode project to use manual signing with our profile (App target only)
+          ruby -e '
+            proj = File.read("App.xcodeproj/project.pbxproj")
+            # Set manual signing for the App target build configs
+            proj.gsub!(/CODE_SIGN_STYLE = Automatic;/, "CODE_SIGN_STYLE = Manual;")
+            proj.gsub!(/DEVELOPMENT_TEAM = "";/, "DEVELOPMENT_TEAM = \"'"$APPLE_TEAM_ID"'\";")
+            # Add provisioning profile specifier where bundle ID is set
+            proj.gsub!(/PRODUCT_BUNDLE_IDENTIFIER = app\.firasa\.mobile;/) { |m|
+              m + "\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"'"$PROFILE_NAME"'\";\n\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";"
+            }
+            File.write("App.xcodeproj/project.pbxproj", proj)
+          '
+
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
             -archivePath $PWD/build/App.xcarchive \
-            archive \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            -allowProvisioningUpdates
+            archive
 
       - name: Export IPA
         working-directory: apps/web/ios/App
