@@ -90,30 +90,26 @@ jobs:
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # Patch the Xcode project to use manual signing with our profile (App target only)
-          ruby -e '
-            proj = File.read("App.xcodeproj/project.pbxproj")
-            proj.gsub!(/CODE_SIGN_STYLE = Automatic;/, "CODE_SIGN_STYLE = Manual;")
-            # Set DEVELOPMENT_TEAM for all configs
-            proj.gsub!(/DEVELOPMENT_TEAM = .*;/, "DEVELOPMENT_TEAM = \"'"$APPLE_TEAM_ID"'\";")
-            # Add provisioning profile and code sign identity where bundle ID is set
-            proj.gsub!(/PRODUCT_BUNDLE_IDENTIFIER = app\.firasa\.mobile;/) { |m|
-              m + "\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"'"$PROFILE_NAME"'\";\n\t\t\t\tCODE_SIGN_IDENTITY = \"Apple Distribution\";"
-            }
-            File.write("App.xcodeproj/project.pbxproj", proj)
-          '
+          # Patch the Xcode project for manual signing
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' App.xcodeproj/project.pbxproj
 
-          # Debug: verify the changes
-          grep -c "DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj
-          grep "DEVELOPMENT_TEAM" App.xcodeproj/project.pbxproj | head -3
+          # Insert signing settings after each PRODUCT_BUNDLE_IDENTIFIER line for app.firasa.mobile
+          sed -i '' '/PRODUCT_BUNDLE_IDENTIFIER = app\.firasa\.mobile;/a\
+          \t\t\t\tDEVELOPMENT_TEAM = "'"$APPLE_TEAM_ID"'";\
+          \t\t\t\tPROVISIONING_PROFILE_SPECIFIER = "'"$PROFILE_NAME"'";\
+          \t\t\t\tCODE_SIGN_IDENTITY = "Apple Distribution";
+          ' App.xcodeproj/project.pbxproj
+
+          # Debug output
+          echo "=== Signing settings ==="
+          grep -A3 "PRODUCT_BUNDLE_IDENTIFIER = app.firasa.mobile" App.xcodeproj/project.pbxproj | head -12
 
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
             -archivePath $PWD/build/App.xcarchive \
-            archive \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+            archive
 
       - name: Export IPA
         working-directory: apps/web/ios/App
