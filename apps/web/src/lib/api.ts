@@ -37,6 +37,26 @@ class ApiClient {
     return data;
   }
 
+  // ─── Generic helpers ──────────────────────────────────────
+
+  async get<T>(path: string): Promise<T> {
+    return this.request<T>(path);
+  }
+
+  async post<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>(path, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  async del<T>(path: string, body?: unknown): Promise<T> {
+    return this.request<T>(path, {
+      method: 'DELETE',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
   // ─── Auth ────────────────────────────────────────────────
 
   async getMe() {

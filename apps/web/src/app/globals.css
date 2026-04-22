@@ -191,6 +191,11 @@ body {
   animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes consensus-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 12px 2px var(--accent-ring); }
+}
+
 /* Hide scrollbar for horizontal scroll areas */
 .scrollbar-hide {
   -ms-overflow-style: none;
