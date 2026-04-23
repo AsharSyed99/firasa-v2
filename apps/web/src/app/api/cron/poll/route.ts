@@ -246,9 +246,10 @@ async function sendPushNotifications(db: any, signal: { id: string; tickers: str
 // ─── Main Pipeline ───────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  // Auth check: require CRON_SECRET or allow if not set (dev mode)
+  // Auth check: accept Vercel cron header, CRON_SECRET, or allow if no secret set (dev)
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
+  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
+  if (cronSecret && !isVercelCron) {
     const authHeader = req.headers.get('authorization');
     const xCronSecret = req.headers.get('x-cron-secret');
     if (authHeader !== `Bearer ${cronSecret}` && xCronSecret !== cronSecret) {
