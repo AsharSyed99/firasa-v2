@@ -16,7 +16,7 @@ export const maxDuration = 60; // allow up to 60s for pipeline
 // ─── Config ──────────────────────────────────────────────────
 
 const TICKER_REGEX = /\$([A-Z]{1,5})\b/g;
-const TICKER_BLACKLIST = new Set(['I', 'A', 'AM', 'PM', 'US', 'CEO', 'IPO', 'ETF', 'AI', 'USD', 'THE', 'ALL', 'NEW', 'TOP', 'NOW']);
+const TICKER_BLACKLIST = new Set(['I', 'A', 'AM', 'PM', 'US', 'CEO', 'IPO', 'ETF', 'AI', 'USD', 'THE', 'ALL', 'NEW', 'TOP']);
 
 // Common crypto/stock name → ticker mapping for tweets without $TICKER format
 const NAME_TO_TICKER: Record<string, string> = {
@@ -29,6 +29,7 @@ const NAME_TO_TICKER: Record<string, string> = {
   'tesla': 'TSLA', 'nvidia': 'NVDA', 'apple': 'AAPL',
   'amazon': 'AMZN', 'google': 'GOOGL', 'microsoft': 'MSFT',
   'microstrategy': 'MSTR', '#mstr': 'MSTR',
+  'netflix': 'NFLX', 'meta': 'META', 'palantir': 'PLTR',
   'spy': 'SPY', 'qqq': 'QQQ',
 };
 
