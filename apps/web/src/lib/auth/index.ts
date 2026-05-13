@@ -14,6 +14,7 @@ function cuid(): string {
 }
 
 const nextAuth: NextAuthResult = NextAuth({
+  trustHost: true,
   providers: [
     Twitter({
       clientId: process.env.TWITTER_CLIENT_ID!,
@@ -23,6 +24,36 @@ const nextAuth: NextAuthResult = NextAuth({
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/login',
+  },
+  // Use non-prefixed cookies so they work in iOS WebView (Capacitor)
+  useSecureCookies: false,
+  cookies: {
+    sessionToken: {
+      name: 'authjs.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+      },
+    },
+    callbackUrl: {
+      name: 'authjs.callback-url',
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+      },
+    },
+    csrfToken: {
+      name: 'authjs.csrf-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: true,
+      },
+    },
   },
   callbacks: {
     async signIn({ user, account }) {
