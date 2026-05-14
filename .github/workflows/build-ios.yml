@@ -116,6 +116,11 @@ jobs:
           echo "=== Signing config ==="
           grep -n "DEVELOPMENT_TEAM\|PROVISIONING_PROFILE\|CODE_SIGN" "$PROJ" | head -15
 
+          # Bump build number using run number to ensure uniqueness
+          BUILD_NUMBER=${{ github.run_number }}
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" App/Info.plist
+          echo "Build number set to: $BUILD_NUMBER"
+
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
