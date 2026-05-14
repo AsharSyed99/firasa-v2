@@ -1,9 +1,50 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
+import { useCallback, useState } from 'react';
 import { FirasaLogo } from '@/components/layout/firasa-logo';
 
+function isNativeApp(): boolean {
+  return typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+}
+
 export default function LoginPage() {
+  const [loading, setLoading] = useState(false);
+
+  const handleSignIn = useCallback(async () => {
+    setLoading(true);
+    if (isNativeApp()) {
+      // Native app: open OAuth in system browser to avoid WebView blocking
+      try {
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.open({
+          url: 'https://firasa-opal.vercel.app/api/auth/signin/twitter?callbackUrl=%2Fdashboard',
+          presentationStyle: 'popover',
+        });
+        // When user returns from browser, check if auth succeeded
+        const checkAuth = () => {
+          fetch('/api/auth/session')
+            .then(r => r.json())
+            .then(session => {
+              if (session?.user) {
+                window.location.href = '/dashboard';
+              }
+              setLoading(false);
+            })
+            .catch(() => setLoading(false));
+        };
+        Browser.addListener('browserFinished', checkAuth);
+        // Also check after a delay in case listener doesn't fire
+        setTimeout(checkAuth, 3000);
+      } catch {
+        // Fallback to regular signIn if Browser plugin unavailable
+        signIn('twitter', { callbackUrl: '/dashboard' });
+      }
+    } else {
+      signIn('twitter', { callbackUrl: '/dashboard' });
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6">
       <div className="w-full max-w-sm space-y-8">
@@ -22,8 +63,9 @@ export default function LoginPage() {
 
         {/* Sign in button */}
         <button
-          onClick={() => signIn('twitter', { callbackUrl: '/dashboard' })}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl font-semibold text-white transition hover:opacity-90"
+          onClick={handleSignIn}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
           style={{ background: '#1DA1F2' }}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

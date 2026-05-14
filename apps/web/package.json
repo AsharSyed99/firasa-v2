@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@auth/core": "^0.41.2",
+    "@capacitor/browser": "^6.0.0",
     "@capacitor/cli": "^6.2.1",
     "@capacitor/core": "^6.2.1",
     "@capacitor/ios": "^6.2.1",
